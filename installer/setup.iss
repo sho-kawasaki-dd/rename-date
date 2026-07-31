@@ -1,0 +1,1 @@
+; Placeholder for the Phase 4 Inno Setup configuration.

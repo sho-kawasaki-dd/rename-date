@@ -1,0 +1,1 @@
+"""Rename item model placeholder."""

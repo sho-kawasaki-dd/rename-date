@@ -22,72 +22,72 @@
 
 ### 1. プロジェクト初期化
 
-- [ ] リポジトリ直下（`d:\programming\rename-date`）で `uv init --app --package .` を実行する。
-- [ ] 実行後に生成された `pyproject.toml` / `.python-version` / `src/rename_date/` の内容を確認する。
-- [ ] `git status` / `git diff` で `README.md` の内容と `.git/` が変更・再初期化されていないことを確認する。
+- [x] リポジトリ直下（`d:\programming\rename-date`）で `uv init --app --package .` を実行する。
+- [x] 実行後に生成された `pyproject.toml` / `.python-version` / `src/rename_date/` の内容を確認する。
+- [x] `git status` / `git diff` で `README.md` の内容と `.git/` が変更・再初期化されていないことを確認する。
 
 ### 2. `pyproject.toml` 調整
 
-- [ ] `requires-python = ">=3.12"` を設定する。
-- [ ] `[tool.pytest.ini_options]` を追加し `pythonpath = ["src"]` を設定する。
-- [ ] `[project]` の name / version / description を確認する（既定のままで可）。
-- [ ] uv が `[project.scripts]` を自動生成していた場合、`rename_date.__main__:main` との整合性を確認する。
+- [x] `requires-python = ">=3.12"` を設定する。
+- [x] `[tool.pytest.ini_options]` を追加し `pythonpath = ["src"]` を設定する。
+- [x] `[project]` の name / version / description を確認する（既定のままで可）。
+- [x] uv が `[project.scripts]` を自動生成していた場合、`rename_date.__main__:main` との整合性を確認する。
 
 ### 3. 開発用依存関係の追加
 
-- [ ] `uv add --dev pytest pytest-cov pyinstaller` を実行する。
-- [ ] `pyproject.toml` の dev 依存グループと `uv.lock` が更新されたことを確認する。
+- [x] `uv add --dev pytest pytest-cov pyinstaller` を実行する。
+- [x] `pyproject.toml` の dev 依存グループと `uv.lock` が更新されたことを確認する。
 
 ### 4. パッケージ骨組みの作成（全ファイルスタブ）
 
 ルート:
 
-- [ ] `main.py` — `rename_date.__main__.main` を呼び出す薄いラッパーのみ作成する。
+- [x] `main.py` — `rename_date.__main__.main` を呼び出す薄いラッパーのみ作成する。
 
 `src/rename_date/`:
 
-- [ ] `__init__.py` — `__version__ = "0.1.0"` のみ定義する。
-- [ ] `__main__.py` — `def main() -> None: ...` のみ（実装は Phase 3）。
-- [ ] `config.py` — モジュール docstring のみ（実装は Phase 1）。
-- [ ] `single_instance.py` — モジュール docstring のみ（実装は Phase 3）。
-- [ ] `models/__init__.py` — 空ファイルを作成する。
-- [ ] `models/rename_item.py` — モジュール docstring のみ（実装は Phase 1）。
-- [ ] `models/execution_history.py` — モジュール docstring のみ（実装は Phase 1）。
-- [ ] `services/__init__.py` — 空ファイルを作成する。
-- [ ] `services/scanner_service.py` — モジュール docstring のみ（実装は Phase 1）。
-- [ ] `services/rename_service.py` — モジュール docstring のみ（実装は Phase 1）。
-- [ ] `services/undo_service.py` — モジュール docstring のみ（実装は Phase 1）。
-- [ ] `services/log_service.py` — モジュール docstring のみ（実装は Phase 1）。
-- [ ] `controllers/__init__.py` — 空ファイルを作成する。
-- [ ] `controllers/app_controller.py` — モジュール docstring のみ（実装は Phase 3）。
-- [ ] `views/__init__.py` — 空ファイルを作成する。
-- [ ] `views/main_window.py` — モジュール docstring のみ（実装は Phase 2）。
-- [ ] `views/config_frame.py` — モジュール docstring のみ（実装は Phase 2）。
-- [ ] `views/preview_frame.py` — モジュール docstring のみ（実装は Phase 2）。
-- [ ] `views/action_frame.py` — モジュール docstring のみ（実装は Phase 2）。
+- [x] `__init__.py` — `__version__ = "0.1.0"` のみ定義する。
+- [x] `__main__.py` — `def main() -> None: ...` のみ（実装は Phase 3）。
+- [x] `config.py` — モジュール docstring のみ（実装は Phase 1）。
+- [x] `single_instance.py` — モジュール docstring のみ（実装は Phase 3）。
+- [x] `models/__init__.py` — 空ファイルを作成する。
+- [x] `models/rename_item.py` — モジュール docstring のみ（実装は Phase 1）。
+- [x] `models/execution_history.py` — モジュール docstring のみ（実装は Phase 1）。
+- [x] `services/__init__.py` — 空ファイルを作成する。
+- [x] `services/scanner_service.py` — モジュール docstring のみ（実装は Phase 1）。
+- [x] `services/rename_service.py` — モジュール docstring のみ（実装は Phase 1）。
+- [x] `services/undo_service.py` — モジュール docstring のみ（実装は Phase 1）。
+- [x] `services/log_service.py` — モジュール docstring のみ（実装は Phase 1）。
+- [x] `controllers/__init__.py` — 空ファイルを作成する。
+- [x] `controllers/app_controller.py` — モジュール docstring のみ（実装は Phase 3）。
+- [x] `views/__init__.py` — 空ファイルを作成する。
+- [x] `views/main_window.py` — モジュール docstring のみ（実装は Phase 2）。
+- [x] `views/config_frame.py` — モジュール docstring のみ（実装は Phase 2）。
+- [x] `views/preview_frame.py` — モジュール docstring のみ（実装は Phase 2）。
+- [x] `views/action_frame.py` — モジュール docstring のみ（実装は Phase 2）。
 
 `tests/`:
 
-- [ ] `conftest.py` — 最小限のプレースホルダのみ作成する（`test_*.py` はこのフェーズでは作成しない）。
+- [x] `conftest.py` — 最小限のプレースホルダのみ作成する（`test_*.py` はこのフェーズでは作成しない）。
 
 `installer/`（中身は Phase 4 実装分のプレースホルダ）:
 
-- [ ] `rename-date.spec` — プレースホルダである旨のコメントのみ記載する。
-- [ ] `setup.iss` — プレースホルダである旨のコメントのみ記載する。
+- [x] `rename-date.spec` — プレースホルダである旨のコメントのみ記載する。
+- [x] `setup.iss` — プレースホルダである旨のコメントのみ記載する。
 
 ### 5. `.gitignore` 整備
 
-- [ ] `dist/`, `build/`, `.venv/`, `__pycache__/`, `installer/Output/` を含める。
-- [ ] `.pytest_cache/`, `.coverage`, `*.egg-info/`, `.mypy_cache/`, `.ruff_cache/`, `*.pyc`, `*.pyo` を追加する。
-- [ ] uv が生成した既定の `.gitignore`（存在する場合）と重複を排除しつつマージする。
+- [x] `dist/`, `build/`, `.venv/`, `__pycache__/`, `installer/Output/` を含める。
+- [x] `.pytest_cache/`, `.coverage`, `*.egg-info/`, `.mypy_cache/`, `.ruff_cache/`, `*.pyc`, `*.pyo` を追加する。
+- [x] uv が生成した既定の `.gitignore`（存在する場合）と重複を排除しつつマージする。
 
 ### 6. 動作確認
 
-- [ ] `uv run main.py` がエラーなく終了することを確認する。
-- [ ] `uv run pytest --cov=src/rename_date` を実行し、「no tests ran」（exit code 5）が想定内であることを確認する。
-- [ ] `pyproject.toml` の `requires-python` と `pythonpath` 設定を目視確認する。
-- [ ] `uv.lock` に `pytest` / `pytest-cov` / `pyinstaller` が dev 依存として記録されていることを確認する。
-- [ ] `git status` で意図しないファイル変更（`README.md`, `.git/` 配下）がないこと、新規追加ファイルが想定どおりであることを確認する（コミットはユーザーが手動で実施）。
+- [x] `uv run main.py` がエラーなく終了することを確認する。
+- [x] `uv run pytest --cov=src/rename_date` を実行し、「no tests ran」（exit code 5）が想定内であることを確認する。
+- [x] `pyproject.toml` の `requires-python` と `pythonpath` 設定を目視確認する。
+- [x] `uv.lock` に `pytest` / `pytest-cov` / `pyinstaller` が dev 依存として記録されていることを確認する。
+- [x] `git status` で意図しないファイル変更（`README.md`, `.git/` 配下）がないこと、新規追加ファイルが想定どおりであることを確認する（コミットはユーザーが手動で実施）。
 
 ## スコープ外（本フェーズで実装しないこと）
 
