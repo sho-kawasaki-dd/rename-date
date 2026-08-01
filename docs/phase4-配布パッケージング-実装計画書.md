@@ -42,54 +42,54 @@ Windows 用インストーラーとして配布できる状態にする。あわ
 
 ### 1. PyInstaller spec の実装（`installer/rename-date.spec`）
 
-- [ ] `main.py` を起点に `Analysis` → `PYZ` → `EXE(exclude_binaries=True)` → `COLLECT` の onedir
+- [x] `main.py` を起点に `Analysis` → `PYZ` → `EXE(exclude_binaries=True)` → `COLLECT` の onedir
       構成とし、`name="rename-date"`, `console=False` を設定する。
-- [ ] `tkinterdnd2` の `tkdnd` フォルダを `datas` に追加する。
+- [x] `tkinterdnd2` の `tkdnd` フォルダを `datas` に追加する。
       `import tkinterdnd2; os.path.join(os.path.dirname(tkinterdnd2.__file__), "tkdnd")` で
       解決したパスを `("tkinterdnd2/tkdnd")` 宛先で同梱する。
-- [ ] `installer/assets/app.ico` の存在を `os.path.exists` で確認し、存在すれば `EXE` の `icon=` に
+- [x] `installer/assets/app.ico` の存在を `os.path.exists` で確認し、存在すれば `EXE` の `icon=` に
       指定、存在しなければ `icon=None` とする（ディレクトリ自体は作成し参照パスを確保する）。
-- [ ] `uv run pyinstaller installer/rename-date.spec --noconfirm --clean` で
+- [x] `uv run pyinstaller installer/rename-date.spec --noconfirm --clean` で
       `dist/rename-date/rename-date.exe` が生成されることを確認する。
 
 ### 2. Inno Setup スクリプトの実装（`installer/setup.iss`）
 
-- [ ] `#define MyAppName "rename-date"` と `AppId={{A6F1E9C2-4B8D-4E1A-9F3C-2D7B5E8A1C40}}` を
+- [x] `#define MyAppName "rename-date"` と `AppId={{A6F1E9C2-4B8D-4E1A-9F3C-2D7B5E8A1C40}}` を
       固定値として設定する。
-- [ ] `MyAppVersion` はビルドスクリプトから `/DMyAppVersion=x.y.z` として注入される前提とし、
+- [x] `MyAppVersion` はビルドスクリプトから `/DMyAppVersion=x.y.z` として注入される前提とし、
       `AppVersion={#MyAppVersion}` に反映する。未指定時のデフォルト値も用意し、`iscc` 単体実行でも
       壊れないようにする。
-- [ ] `PrivilegesRequired=lowest`、`DefaultDirName={autopf}\rename-date` を設定する。
-- [ ] `[Files]` セクションで `Source: "..\dist\rename-date\*"; DestDir: "{app}"; Flags: recursesubdirs
+- [x] `PrivilegesRequired=lowest`、`DefaultDirName={autopf}\rename-date` を設定する。
+- [x] `[Files]` セクションで `Source: "..\dist\rename-date\*"; DestDir: "{app}"; Flags: recursesubdirs
       createallsubdirs ignoreversion` を指定する。
-- [ ] `[Icons]` にスタートメニュー用ショートカットを必須作成し、`[Tasks]` に `desktopicon` タスク
+- [x] `[Icons]` にスタートメニュー用ショートカットを必須作成し、`[Tasks]` に `desktopicon` タスク
       （既定 ON、`unchecked` フラグなし）を追加してデスクトップショートカットを条件付き作成する。
-- [ ] `%APPDATA%\rename-date` を削除する処理を一切入れない（アンインストール後もログ・設定が
+- [x] `%APPDATA%\rename-date` を削除する処理を一切入れない（アンインストール後もログ・設定が
       残ることを保証する）。
-- [ ] `#if FileExists("assets\app.ico")` ガードで `SetupIconFile` を条件付き設定する。
-- [ ] `[Run]` に「インストール後にアプリを起動する」チェック付きの起動エントリを追加する。
+- [x] `#if FileExists("assets\app.ico")` ガードで `SetupIconFile` を条件付き設定する。
+- [x] `[Run]` に「インストール後にアプリを起動する」チェック付きの起動エントリを追加する。
 
 ### 3. PowerShell 一括ビルドスクリプトの実装（`scripts/build-release.ps1`）
 
-- [ ] `$ErrorActionPreference = 'Stop'` を設定し、`$PSScriptRoot\..` をリポジトリルートとして
+- [x] `$ErrorActionPreference = 'Stop'` を設定し、`$PSScriptRoot\..` をリポジトリルートとして
       `Push-Location` する（`finally` で `Pop-Location`）。
-- [ ] `pyproject.toml` を読み込み、正規表現 `version\s*=\s*"([^"]+)"` でバージョン文字列を抽出する。
-- [ ] `src/rename_date/__init__.py` の `__version__` と比較し、不一致であれば `Write-Warning` で
+- [x] `pyproject.toml` を読み込み、正規表現 `version\s*=\s*"([^"]+)"` でバージョン文字列を抽出する。
+- [x] `src/rename_date/__init__.py` の `__version__` と比較し、不一致であれば `Write-Warning` で
       警告を表示する（ビルドは継続する）。
-- [ ] `build/`, `dist/`, `installer/Output/` を `Remove-Item -Recurse -Force -ErrorAction
+- [x] `build/`, `dist/`, `installer/Output/` を `Remove-Item -Recurse -Force -ErrorAction
       SilentlyContinue` で事前クリーンする。
-- [ ] `uv run pyinstaller installer/rename-date.spec --noconfirm --clean` を実行し、
+- [x] `uv run pyinstaller installer/rename-date.spec --noconfirm --clean` を実行し、
       `$LASTEXITCODE` を確認、非ゼロなら例外を投げて停止する。
-- [ ] `dist/rename-date/rename-date.exe` の存在を確認し、存在しなければ明示的なエラーで停止する。
-- [ ] `Get-Command iscc.exe -ErrorAction SilentlyContinue` で存在確認し、見つからなければ
+- [x] `dist/rename-date/rename-date.exe` の存在を確認し、存在しなければ明示的なエラーで停止する。
+- [x] `Get-Command iscc.exe -ErrorAction SilentlyContinue` で存在確認し、見つからなければ
       「Inno Setup をインストールし iscc.exe を PATH に追加してください」という趣旨のエラーで
       停止する。
-- [ ] `iscc.exe /DMyAppVersion=$version installer\setup.iss` を実行し、終了コードを確認する。
-- [ ] 成功時、生成されたインストーラー（`installer/Output/*.exe`）のパスをコンソールに出力する。
+- [x] `iscc.exe /DMyAppVersion=$version installer\setup.iss` を実行し、終了コードを確認する。
+- [x] 成功時、生成されたインストーラー（`installer/Output/*.exe`）のパスをコンソールに出力する。
 
 ### 4. ドキュメント整備
 
-- [ ] `README.md` に、`uv sync` → `pwsh scripts/build-release.ps1` の 1 コマンドで実行ファイル化と
+- [x] `README.md` に、`uv sync` → `pwsh scripts/build-release.ps1` の 1 コマンドで実行ファイル化と
       インストーラー生成が完了する旨、生成物の場所（`dist/rename-date/`, `installer/Output/`）を
       追記する。
 
