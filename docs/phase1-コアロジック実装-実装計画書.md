@@ -67,8 +67,8 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 6. `RenameService` / `UndoService`
 
-- [ ] `services/rename_service.py`: `execute(items, cancel_event=None) -> tuple[list[RenameItem], ExecutionHistory]` を実装する。`is_executable` な項目のみ `Path.rename()` を実行し、`FileExistsError` → `SKIPPED`、その他 `OSError` → `ERROR`、成功は `SUCCESS` とする。戻り値の第1要素は全項目（最終ステータス反映）、第2要素は成功項目のみの `ExecutionHistory` とする。
-- [ ] `services/undo_service.py`: `UndoService` クラス（`push(history)`, `has_history() -> bool`, `undo(cancel_event=None) -> list[RenameItem]`）を実装する。スタック末尾を pop し、`reversed(history.items)` の順で復元する。欠損・競合時は該当項目のみ `SKIPPED`、その他 `OSError` は `ERROR` とし処理を継続する。
+- [x] `services/rename_service.py`: `execute(items, cancel_event=None) -> tuple[list[RenameItem], ExecutionHistory]` を実装する。`is_executable` な項目のみ `Path.rename()` を実行し、`FileExistsError` → `SKIPPED`、その他 `OSError` → `ERROR`、成功は `SUCCESS` とする。戻り値の第1要素は全項目（最終ステータス反映）、第2要素は成功項目のみの `ExecutionHistory` とする。
+- [x] `services/undo_service.py`: `UndoService` クラス（`push(history)`, `has_history() -> bool`, `undo(cancel_event=None) -> list[RenameItem]`）を実装する。スタック末尾を pop し、`reversed(history.items)` の順で復元する。欠損・競合時は該当項目のみ `SKIPPED`、その他 `OSError` は `ERROR` とし処理を継続する。
 
 ### 7. `LogService`
 
