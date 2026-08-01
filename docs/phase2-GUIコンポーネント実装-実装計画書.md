@@ -67,12 +67,12 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ### 4. `ActionFrame`
 
-- [ ] `src/rename_date/views/action_frame.py`: `ActionFrame(ttk.Frame)` を実装する。コンストラクタ引数 `on_execute`, `on_undo`, `on_cancel`（既定 no-op）と `set_callbacks(**kwargs)` を定義する。
-- [ ] 件数表示ラベル: `set_counts(executable: int, invalid: int, total: int) -> None` で「実行対象: N件 / 無効: M件 / 合計: T件」形式の文字列を更新する。
-- [ ] 「一括変換を実行」ボタン（押下で `on_execute()`）、「Undo」ボタン（押下で `on_undo()`、既定 disabled）を配置し、`set_undo_enabled(bool) -> None` を公開する。
-- [ ] 「ログ保存」`ttk.Checkbutton`（`BooleanVar`、既定 `True`）を配置し、`get_log_enabled() -> bool` を公開する。
-- [ ] `ttk.Progressbar(mode="determinate")` とステータス `ttk.Label` を配置し、`set_progress(value: int) -> None` / `set_status(text: str) -> None` を公開する。
-- [ ] 「キャンセル」ボタン（押下で `on_cancel()`）を配置し、`set_processing(is_processing: bool) -> None` で処理中は実行/Undoボタンを無効化しキャンセルボタンを有効化、非処理中は逆にする。
+- [x] `src/rename_date/views/action_frame.py`: `ActionFrame(ttk.Frame)` を実装する。コンストラクタ引数 `on_execute`, `on_undo`, `on_cancel`（既定 no-op）と `set_callbacks(**kwargs)` を定義する。
+- [x] 件数表示ラベル: `set_counts(executable: int, invalid: int, total: int) -> None` で「実行対象: N件 / 無効: M件 / 合計: T件」形式の文字列を更新する。
+- [x] 「一括変換を実行」ボタン（押下で `on_execute()`）、「Undo」ボタン（押下で `on_undo()`、既定 disabled）を配置し、`set_undo_enabled(bool) -> None` を公開する。
+- [x] 「ログ保存」`ttk.Checkbutton`（`BooleanVar`、既定 `True`）を配置し、`get_log_enabled() -> bool` を公開する。
+- [x] `ttk.Progressbar(mode="determinate")` とステータス `ttk.Label` を配置し、`set_progress(value: int) -> None` / `set_status(text: str) -> None` を公開する。
+- [x] 「キャンセル」ボタン（押下で `on_cancel()`）を配置し、`set_processing(is_processing: bool) -> None` で処理中は実行/Undoボタンを無効化しキャンセルボタンを有効化、非処理中は逆にする。
 
 ### 5. `MainWindow`
 
