@@ -28,16 +28,16 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 1. Models 層
 
-- [ ] `models/rename_item.py`: `ItemStatus(StrEnum)`（`PENDING`/`INVALID_DATE`/`RESOLVED_CONFLICT`/`SUCCESS`/`SKIPPED`/`ERROR`）と `RenameItem` dataclass（`original_path`, `target_path`, `status`, `message`、プロパティ `original_name`/`target_name`/`parent_dir`/`is_executable`）を開発計画書5章のとおり実装する。
-- [ ] `models/execution_history.py`: `ExecutionHistory` dataclass（`timestamp`, `session_id`, `items: list[RenameItem]`）を開発計画書5章のとおり実装する。
-- [ ] `models/pattern_entry.py`（新規作成）: `PatternEntry` dataclass（`name`, `pattern`, `output_template`）と `to_dict()` / `from_dict(cls, data: dict)` を実装する。
+- [x] `models/rename_item.py`: `ItemStatus(StrEnum)`（`PENDING`/`INVALID_DATE`/`RESOLVED_CONFLICT`/`SUCCESS`/`SKIPPED`/`ERROR`）と `RenameItem` dataclass（`original_path`, `target_path`, `status`, `message`、プロパティ `original_name`/`target_name`/`parent_dir`/`is_executable`）を開発計画書5章のとおり実装する。
+- [x] `models/execution_history.py`: `ExecutionHistory` dataclass（`timestamp`, `session_id`, `items: list[RenameItem]`）を開発計画書5章のとおり実装する。
+- [x] `models/pattern_entry.py`（新規作成）: `PatternEntry` dataclass（`name`, `pattern`, `output_template`）と `to_dict()` / `from_dict(cls, data: dict)` を実装する。
 
 ### 2. `config.py`
 
-- [ ] 既定プリセット定数（`DEFAULT_PATTERN_NAME`, `DEFAULT_PATTERN_REGEX`, `DEFAULT_OUTPUT_TEMPLATE`）を定義する。
-- [ ] 既定除外ディレクトリ集合 `EXCLUDED_DIR_NAMES`（`.git`, `.svn`, `.hg`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.idea`, `.vscode`）を定義する。
-- [ ] ログローテーション定数 `LOG_MAX_BYTES=1_048_576`, `LOG_BACKUP_COUNT=5`, ロガー名定数 `AUDIT_LOGGER_NAME="rename_date.audit"` を定義する。
-- [ ] `get_appdata_dir()` / `get_config_dir()` / `get_log_dir()`（`%APPDATA%\rename-date\...`）を実装する。
+- [x] 既定プリセット定数（`DEFAULT_PATTERN_NAME`, `DEFAULT_PATTERN_REGEX`, `DEFAULT_OUTPUT_TEMPLATE`）を定義する。
+- [x] 既定除外ディレクトリ集合 `EXCLUDED_DIR_NAMES`（`.git`, `.svn`, `.hg`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.idea`, `.vscode`）を定義する。
+- [x] ログローテーション定数 `LOG_MAX_BYTES=1_048_576`, `LOG_BACKUP_COUNT=5`, ロガー名定数 `AUDIT_LOGGER_NAME="rename_date.audit"` を定義する。
+- [x] `get_appdata_dir()` / `get_config_dir()` / `get_log_dir()`（`%APPDATA%\rename-date\...`）を実装する。
 
 ### 3. 共有検証ロジック
 
