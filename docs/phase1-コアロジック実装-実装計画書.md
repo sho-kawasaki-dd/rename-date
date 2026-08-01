@@ -89,9 +89,9 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 9. 動作確認
 
-- [ ] `uv run pytest --cov=src/rename_date --cov-report=term-missing` を実行し、全テストが green であり Services 層カバレッジ85%以上であることを確認する。
-- [ ] ダミー `tmp_path` 構造に対して `ScannerService.scan` を手動実行し、開発計画書11.2章の期待結果（無効日付・衝突回避・隠しフォルダ除外等）と一致することを確認する。
-- [ ] Pylance等の静的検査でエラーが出ていないことを確認する。
+- [x] `uv run pytest --cov=src/rename_date --cov-report=term-missing` を実行し、全テストが green であり Services 層カバレッジ85%以上であることを確認する。
+- [x] ダミー `tmp_path` 構造に対して `ScannerService.scan` を手動実行し、開発計画書11.2章の期待結果（無効日付・衝突回避・隠しフォルダ除外等）と一致することを確認する。
+- [x] Pylance等の静的検査でエラーが出ていないことを確認する。
 
 ## スコープ外（本フェーズで実装しないこと）
 
