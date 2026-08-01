@@ -66,9 +66,9 @@ Phase 1 完成時点では `PatternEntry`（`name` + `pattern` + `output_templat
 
 ### 7. 動作確認
 
-- [ ] `uv run pytest --cov=src/rename_date --cov-report=term-missing` を実行し、全テストが green であり Services 層カバレッジ85%以上であることを確認する。
-- [ ] 手動で `ScannerService.scan()` を複数パターン指定で実行し、逐次適用（パイプライン）の結果が意図どおりであることを確認する。
-- [ ] Pylance等の静的検査でエラーが出ていないことを確認する。
+- [x] `uv run pytest --cov=src/rename_date --cov-report=term-missing` を実行し、全テストが green であり Services 層カバレッジ85%以上であることを確認する。
+- [x] 手動で `ScannerService.scan()` を複数パターン指定で実行し、逐次適用（パイプライン）の結果が意図どおりであることを確認する。
+- [x] Pylance等の静的検査でエラーが出ていないことを確認する。
 
 ## スコープ外（本フェーズで実装しないこと）
 
