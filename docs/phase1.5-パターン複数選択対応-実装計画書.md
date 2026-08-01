@@ -34,9 +34,9 @@ Phase 1 完成時点では `PatternEntry`（`name` + `pattern` + `output_templat
 
 ### 3. `PatternService` の改訂
 
-- [ ] `services/pattern_service.py`: `_default_entry()` から `output_template` を除去する。
-- [ ] `_entries_from_json` / `_validate_entries` のスキーマチェックを `{"name", "pattern"}` に変更する。
-- [ ] `validate_output_template` の呼び出しを削除し、`compile_pattern` のみで検証する。
+- [x] `services/pattern_service.py`: `_default_entry()` から `output_template` を除去する。
+- [x] `_entries_from_json` / `_validate_entries` のスキーマチェックを `{"name", "pattern"}` に変更する。
+- [x] `validate_output_template` の呼び出しを削除し、`compile_pattern` のみで検証する。
 
 ### 4. `OutputTemplateService`（新規）
 

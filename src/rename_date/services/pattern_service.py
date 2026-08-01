@@ -7,7 +7,7 @@ from pathlib import Path
 
 from rename_date import config
 from rename_date.models.pattern_entry import PatternEntry
-from rename_date.services.validation import compile_pattern, validate_output_template
+from rename_date.services.validation import compile_pattern
 
 
 class PatternService:
@@ -83,7 +83,6 @@ class PatternService:
         return PatternEntry(
             name=config.DEFAULT_PATTERN_NAME,
             pattern=config.DEFAULT_PATTERN_REGEX,
-            output_template=config.DEFAULT_OUTPUT_TEMPLATE,
         )
 
     @classmethod
@@ -95,7 +94,7 @@ class PatternService:
         for item in data:
             if not isinstance(item, dict):
                 raise TypeError("each pattern preset must be an object")
-            if set(item) != {"name", "pattern", "output_template"}:
+            if set(item) != {"name", "pattern"}:
                 raise ValueError("pattern preset has an invalid schema")
             if not all(isinstance(item[key], str) for key in item):
                 raise TypeError("pattern preset fields must be strings")
@@ -119,4 +118,3 @@ class PatternService:
                 raise ValueError("pattern preset names must be unique")
             names.add(entry.name)
             compile_pattern(entry.pattern)
-            validate_output_template(entry.output_template)
