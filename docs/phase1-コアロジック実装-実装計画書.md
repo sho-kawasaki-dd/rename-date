@@ -55,15 +55,15 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 5. `ScannerService`
 
-- [ ] `services/scanner_service.py`: `scan(targets, pattern, output_template, cancel_event=None) -> list[RenameItem]` を実装する。
-- [ ] `validation.compile_pattern` / `validate_output_template` による事前検証を行う。
-- [ ] フォルダ対象は `os.walk(topdown=True, followlinks=False)` で走査し、`dirnames` を書き換えて除外ディレクトリ・隠しフォルダ・symlink/junctionの探索を打ち切る。
-- [ ] ファイル対象（直接指定）は隠しファイルチェックのみ適用してそのまま追加する。
-- [ ] `Path.resolve()` で全対象の重複除去を行い、`(親ディレクトリ, ファイル名)` でソートして決定的順序にする。
-- [ ] `re.sub` で `stem` 中の全マッチを置換し、`datetime.date` による日付妥当性検証で1つでも不正なら `INVALID_DATE` とする。
-- [ ] 置換後の連続空白畳み込み・トリムを行い、変更前後で同一の場合は結果から除外する。
-- [ ] 親ディレクトリごとに実在エントリ（casefold比較）を予約済み名として初期化し、衝突時は `_1, _2...` を付与して `RESOLVED_CONFLICT` とする。
-- [ ] `cancel_event` を走査ループ内で定期確認し、要求時は途中結果を返す。
+- [x] `services/scanner_service.py`: `scan(targets, pattern, output_template, cancel_event=None) -> list[RenameItem]` を実装する。
+- [x] `validation.compile_pattern` / `validate_output_template` による事前検証を行う。
+- [x] フォルダ対象は `os.walk(topdown=True, followlinks=False)` で走査し、`dirnames` を書き換えて除外ディレクトリ・隠しフォルダ・symlink/junctionの探索を打ち切る。
+- [x] ファイル対象（直接指定）は隠しファイルチェックのみ適用してそのまま追加する。
+- [x] `Path.resolve()` で全対象の重複除去を行い、`(親ディレクトリ, ファイル名)` でソートして決定的順序にする。
+- [x] `re.sub` で `stem` 中の全マッチを置換し、`datetime.date` による日付妥当性検証で1つでも不正なら `INVALID_DATE` とする。
+- [x] 置換後の連続空白畳み込み・トリムを行い、変更前後で同一の場合は結果から除外する。
+- [x] 親ディレクトリごとに実在エントリ（casefold比較）を予約済み名として初期化し、衝突時は `_1, _2...` を付与して `RESOLVED_CONFLICT` とする。
+- [x] `cancel_event` を走査ループ内で定期確認し、要求時は途中結果を返す。
 
 ### 6. `RenameService` / `UndoService`
 
