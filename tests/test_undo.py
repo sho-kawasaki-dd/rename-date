@@ -89,3 +89,30 @@ def test_undo_uses_lifo_stack(tmp_path):
 
 def test_undo_empty_stack_returns_empty_list():
     assert UndoService().undo() == []
+
+
+def test_undo_reports_progress_for_each_history_item(tmp_path):
+    first_original = tmp_path / "first.txt"
+    second_original = tmp_path / "second.txt"
+    first_target = tmp_path / "first-renamed.txt"
+    second_target = tmp_path / "second-renamed.txt"
+    first_original.write_text("first", encoding="utf-8")
+    second_original.write_text("second", encoding="utf-8")
+    first_original.rename(first_target)
+    second_original.rename(second_target)
+    service = UndoService()
+    service.push(
+        ExecutionHistory(
+            items=[
+                RenameItem(first_original, first_target, ItemStatus.SUCCESS),
+                RenameItem(second_original, second_target, ItemStatus.SUCCESS),
+            ]
+        )
+    )
+    progress: list[tuple[int, int]] = []
+
+    service.undo(
+        progress_callback=lambda done, total: progress.append((done, total)),
+    )
+
+    assert progress == [(1, 2), (2, 2)]

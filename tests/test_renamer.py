@@ -68,3 +68,22 @@ def test_execute_skips_non_executable_items(tmp_path):
     assert result == [item]
     assert item.status == ItemStatus.INVALID_DATE
     assert history.items == []
+
+
+def test_execute_reports_progress_for_each_result_item(tmp_path):
+    first = tmp_path / "first.txt"
+    first_target = tmp_path / "first-new.txt"
+    first.write_text("first", encoding="utf-8")
+    second = RenameItem(
+        tmp_path / "invalid.txt",
+        tmp_path / "invalid-new.txt",
+        status=ItemStatus.INVALID_DATE,
+    )
+    progress: list[tuple[int, int]] = []
+
+    RenameService().execute(
+        [RenameItem(first, first_target), second],
+        progress_callback=lambda done, total: progress.append((done, total)),
+    )
+
+    assert progress == [(1, 2), (2, 2)]

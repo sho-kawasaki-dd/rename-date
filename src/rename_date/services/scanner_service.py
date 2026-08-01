@@ -3,10 +3,10 @@
 import os
 import stat
 import re
+from collections.abc import Callable, Iterable
 from datetime import date
 from pathlib import Path
 from threading import Event
-from typing import Iterable
 
 from rename_date import config
 from rename_date.models.rename_item import ItemStatus, RenameItem
@@ -26,6 +26,7 @@ class ScannerService:
 		patterns: list[str],
 		output_template: str,
 		cancel_event: Event | None = None,
+		progress_callback: Callable[[int, int], None] | None = None,
 	) -> list[RenameItem]:
 		"""Scan targets and calculate collision-free rename destinations."""
 		if not patterns:
@@ -36,73 +37,78 @@ class ScannerService:
 		reservations: dict[Path, set[str]] = {}
 		results: list[RenameItem] = []
 
-		for source in files:
+		total = len(files)
+		for index, source in enumerate(files, start=1):
 			if cancel_event is not None and cancel_event.is_set():
 				break
 
-			working_stem = source.stem
-			matched_any = False
-			invalid_date = False
-			for compiled in compiled_patterns:
-				matches = list(compiled.finditer(working_stem))
-				if not matches:
-					continue
-				matched_any = True
+			try:
+				working_stem = source.stem
+				matched_any = False
+				invalid_date = False
+				for compiled in compiled_patterns:
+					matches = list(compiled.finditer(working_stem))
+					if not matches:
+						continue
+					matched_any = True
 
-				try:
-					for match in matches:
+					try:
+						for match in matches:
+							year, month, day = self._date_parts(match)
+							date(year, month, day)
+					except (TypeError, ValueError):
+						invalid_date = True
+						break
+
+					def replace_match(match: re.Match[str]) -> str:
 						year, month, day = self._date_parts(match)
-						date(year, month, day)
-				except (TypeError, ValueError):
-					invalid_date = True
-					break
+						return self._render_template(output_template, year, month, day)
 
-				def replace_match(match: re.Match[str]) -> str:
-					year, month, day = self._date_parts(match)
-					return self._render_template(output_template, year, month, day)
+					working_stem = compiled.sub(replace_match, working_stem)
 
-				working_stem = compiled.sub(replace_match, working_stem)
+				if invalid_date:
+					results.append(
+						RenameItem(
+							original_path=source,
+							target_path=source,
+							status=ItemStatus.INVALID_DATE,
+							message="matched value is not a valid date",
+						)
+					)
+					continue
+				if not matched_any:
+					continue
 
-			if invalid_date:
+				new_stem = re.sub(r"\s{2,}", " ", working_stem).strip()
+				if new_stem == source.stem:
+					continue
+
+				reserved = reservations.setdefault(
+					source.parent,
+					self._existing_names(source.parent),
+				)
+				reserved.discard(source.name.casefold())
+				target_stem, resolved_conflict = self._resolve_conflict(
+					new_stem,
+					source.suffix,
+					reserved,
+				)
+				target = source.with_name(target_stem + source.suffix)
+				reserved.add(target.name.casefold())
 				results.append(
 					RenameItem(
 						original_path=source,
-						target_path=source,
-						status=ItemStatus.INVALID_DATE,
-						message="matched value is not a valid date",
+						target_path=target,
+						status=(
+							ItemStatus.RESOLVED_CONFLICT
+							if resolved_conflict
+							else ItemStatus.PENDING
+						),
 					)
 				)
-				continue
-			if not matched_any:
-				continue
-
-			new_stem = re.sub(r"\s{2,}", " ", working_stem).strip()
-			if new_stem == source.stem:
-				continue
-
-			reserved = reservations.setdefault(
-				source.parent,
-				self._existing_names(source.parent),
-			)
-			reserved.discard(source.name.casefold())
-			target_stem, resolved_conflict = self._resolve_conflict(
-				new_stem,
-				source.suffix,
-				reserved,
-			)
-			target = source.with_name(target_stem + source.suffix)
-			reserved.add(target.name.casefold())
-			results.append(
-				RenameItem(
-					original_path=source,
-					target_path=target,
-					status=(
-						ItemStatus.RESOLVED_CONFLICT
-						if resolved_conflict
-						else ItemStatus.PENDING
-					),
-				)
-			)
+			finally:
+				if progress_callback is not None:
+					progress_callback(index, total)
 
 		return results
 

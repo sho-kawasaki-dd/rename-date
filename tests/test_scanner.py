@@ -181,3 +181,18 @@ def test_resolves_collision_within_batch(tmp_path, default_pattern):
 
     assert targets == {"同名 20240102.txt", "同名 20240102_1.txt"}
     assert sum(item.status == ItemStatus.RESOLVED_CONFLICT for item in items) == 1
+
+
+def test_reports_progress_for_every_collected_file(sample_tree, default_pattern):
+    progress: list[tuple[int, int]] = []
+
+    ScannerService().scan(
+        [sample_tree],
+        [default_pattern.pattern],
+        "{Y}{M}{D}",
+        progress_callback=lambda done, total: progress.append((done, total)),
+    )
+
+    assert progress
+    total = progress[-1][1]
+    assert progress == [(index, total) for index in range(1, total + 1)]

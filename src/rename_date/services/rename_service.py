@@ -1,8 +1,8 @@
 """Execute planned file renames without overwriting existing files."""
 
 from pathlib import Path
+from collections.abc import Callable, Iterable
 from threading import Event
-from typing import Iterable
 
 from rename_date.models.execution_history import ExecutionHistory
 from rename_date.models.rename_item import ItemStatus, RenameItem
@@ -15,34 +15,40 @@ class RenameService:
 		self,
 		items: Iterable[RenameItem],
 		cancel_event: Event | None = None,
+		progress_callback: Callable[[int, int], None] | None = None,
 	) -> tuple[list[RenameItem], ExecutionHistory]:
 		"""Rename executable items and continue after individual failures."""
 		result_items = list(items)
 		successful_items: list[RenameItem] = []
 
-		for item in result_items:
+		total = len(result_items)
+		for index, item in enumerate(result_items, start=1):
 			if cancel_event is not None and cancel_event.is_set():
 				break
-			if not item.is_executable:
-				continue
-
-			if self._path_exists_casefold(item.target_path):
-				item.status = ItemStatus.SKIPPED
-				item.message = "target path already exists"
-				continue
-
 			try:
-				item.original_path.rename(item.target_path)
-			except FileExistsError as error:
-				item.status = ItemStatus.SKIPPED
-				item.message = str(error)
-			except OSError as error:
-				item.status = ItemStatus.ERROR
-				item.message = str(error)
-			else:
-				item.status = ItemStatus.SUCCESS
-				item.message = ""
-				successful_items.append(item)
+				if not item.is_executable:
+					continue
+
+				if self._path_exists_casefold(item.target_path):
+					item.status = ItemStatus.SKIPPED
+					item.message = "target path already exists"
+					continue
+
+				try:
+					item.original_path.rename(item.target_path)
+				except FileExistsError as error:
+					item.status = ItemStatus.SKIPPED
+					item.message = str(error)
+				except OSError as error:
+					item.status = ItemStatus.ERROR
+					item.message = str(error)
+				else:
+					item.status = ItemStatus.SUCCESS
+					item.message = ""
+					successful_items.append(item)
+			finally:
+				if progress_callback is not None:
+					progress_callback(index, total)
 
 		return result_items, ExecutionHistory(items=successful_items)
 

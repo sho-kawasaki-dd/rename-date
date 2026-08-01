@@ -50,29 +50,29 @@ Phase 1（Models / Services）・Phase 2（Views）で実装済みの各層を `
 
 ### 1. サービス層への進捗コールバック追加（前提作業）
 
-- [ ] `src/rename_date/services/scanner_service.py`: `scan()` に
+- [x] `src/rename_date/services/scanner_service.py`: `scan()` に
       `progress_callback: Callable[[int, int], None] | None = None` を追加する。
       `_collect_files()` で得たファイル数を `total` とし、結果ループの各反復終了時
       （マッチなし・無効日付で `continue` するケースも含め、対象ファイル1件につき必ず1回）に
       `progress_callback(index, total)` を呼ぶ。
-- [ ] `src/rename_date/services/rename_service.py`: `execute()` に同様の `progress_callback` を追加する。
+- [x] `src/rename_date/services/rename_service.py`: `execute()` に同様の `progress_callback` を追加する。
       `result_items` の長さを `total` とし、実行対象外でスキップする項目も含めループの各反復ごとに呼ぶ。
-- [ ] `src/rename_date/services/undo_service.py`: `undo()` に同様の `progress_callback` を追加する。
+- [x] `src/rename_date/services/undo_service.py`: `undo()` に同様の `progress_callback` を追加する。
       `history.items` の長さを `total` とし、`reversed(history.items)` の各反復ごとに呼ぶ。
-- [ ] `tests/test_scanner.py` / `tests/test_renamer.py` / `tests/test_undo.py` に、
+- [x] `tests/test_scanner.py` / `tests/test_renamer.py` / `tests/test_undo.py` に、
       `progress_callback` に渡した収集用リストが最終的に `(len, len)` で終わる正しい系列で
       呼ばれることを検証するテストケースを追加する。既定値 `None` のため既存テストは無改修で
       通過することを確認する。
 
 ### 2. `single_instance.py` の実装
 
-- [ ] `src/rename_date/single_instance.py`: `SingleInstanceGuard` クラスをコンテキストマネージャとして
+- [x] `src/rename_date/single_instance.py`: `SingleInstanceGuard` クラスをコンテキストマネージャとして
       実装する。ミューテックス名は `r"Local\rename-date-single-instance"` の固定文字列とする。
-- [ ] `__enter__`: `ctypes.windll.kernel32.CreateMutexW(None, False, ミューテックス名)` を呼び、
+- [x] `__enter__`: `ctypes.windll.kernel32.CreateMutexW(None, False, ミューテックス名)` を呼び、
       `ctypes.get_last_error()`（`use_last_error=True` を設定するか `GetLastError()` を用いる）が
       `ERROR_ALREADY_EXISTS`（1183）の場合に `self.already_running = True` を設定する。
-- [ ] `__exit__`: 取得したハンドルを `CloseHandle` で解放する。
-- [ ] `activate_existing_window() -> bool`: `ctypes.windll.user32.FindWindowW(None, "rename-date")` で
+- [x] `__exit__`: 取得したハンドルを `CloseHandle` で解放する。
+- [x] `activate_existing_window() -> bool`: `ctypes.windll.user32.FindWindowW(None, "rename-date")` で
       既存ウィンドウの `hwnd` を検索し、見つかれば `SetForegroundWindow(hwnd)` を呼んで `True` を返す。
       見つからなければ `False` を返す。`MainWindow` の `title()` と文字列を一致させること。
 
@@ -82,21 +82,21 @@ Phase 1（Models / Services）・Phase 2（Views）で実装済みの各層を `
 `MainWindow` と6つのサービスインスタンス（`ScannerService` / `RenameService` / `UndoService` /
 `LogService` / `PatternService` / `OutputTemplateService`）を受け取る（依存性注入）。
 
-- [ ] **初期化**: `pattern_service.load()` / `output_template_service.load()` の結果を
+- [x] **初期化**: `pattern_service.load()` / `output_template_service.load()` の結果を
       `config_frame.set_patterns()` / `set_templates()` に反映する。`config_frame.set_callbacks(...)` /
       `action_frame.set_callbacks(...)` で各ハンドラを登録する。
       `window.protocol("WM_DELETE_WINDOW", self._on_close)` を設定する。
-- [ ] **内部状態**: `self._busy: bool`（多重操作防止）、`self._cancel_event: threading.Event | None`、
+- [x] **内部状態**: `self._busy: bool`（多重操作防止）、`self._cancel_event: threading.Event | None`、
       `self._last_items: list[RenameItem]`、`self._last_base_dir: Path | None`、
       `self._last_scan_params`（再スキャン用に対象パス・パターン文字列列・出力テンプレート文字列を保持）。
-- [ ] **パターン保存 (`_on_pattern_save`)**: `pattern_service.upsert(entry)` を呼び、
+- [x] **パターン保存 (`_on_pattern_save`)**: `pattern_service.upsert(entry)` を呼び、
       `InvalidPatternError` を捕捉して `messagebox.showerror`。成功時は `config_frame.set_patterns(...)`
       で一覧を更新する。
-- [ ] **パターン削除 (`_on_pattern_delete`)**: `pattern_service.delete(name)` を呼び、最後の1件で
+- [x] **パターン削除 (`_on_pattern_delete`)**: `pattern_service.delete(name)` を呼び、最後の1件で
       `ValueError` が送出された場合は `messagebox.showerror` で通知する。成功時は一覧を更新する。
-- [ ] **出力テンプレート保存/削除 (`_on_template_save` / `_on_template_delete`)**: 上記と同様に
+- [x] **出力テンプレート保存/削除 (`_on_template_save` / `_on_template_delete`)**: 上記と同様に
       `output_template_service` の `upsert` / `delete` を呼び、例外時はエラーダイアログを表示する。
-- [ ] **プレビュー要求 (`_on_preview_request`)**:
+- [x] **プレビュー要求 (`_on_preview_request`)**:
       1. `self._busy` なら無視する。
       2. `config_frame.get_targets()` / `get_selected_patterns()` / `get_selected_template()` を取得し、
          いずれかが空/`None` であれば `messagebox.showwarning` で通知して中断する。
@@ -115,7 +115,7 @@ Phase 1（Models / Services）・Phase 2（Views）で実装済みの各層を `
          `action_frame.set_counts(executable, invalid, total)` / `set_processing(False)` /
          ステータス文言（キャンセル時は「キャンセルされました」）を更新し、`self._last_items` /
          `self._last_base_dir` / `self._last_scan_params` を保存、`self._busy = False` とする。
-- [ ] **実行 (`_on_execute`)**:
+- [x] **実行 (`_on_execute`)**:
       1. `self._busy` なら無視。`self._last_items` が空なら `messagebox.showwarning`
          （「先にプレビューを更新してください」）で中断する。
       2. `set_processing(True)` / `set_status("実行中...")`。ワーカーで
@@ -127,7 +127,7 @@ Phase 1（Models / Services）・Phase 2（Views）で実装済みの各層を `
          `action_frame.set_undo_enabled(True)` を呼ぶ。
       5. 決定事項4に従い、`self._last_scan_params` を用いて自動的に再スキャンを実行し、
          プレビュー・件数・ステータスを更新してから `set_processing(False)` / `self._busy = False`。
-- [ ] **Undo (`_on_undo`)**:
+- [x] **Undo (`_on_undo`)**:
       1. `self._busy` なら無視。`undo_service.has_history()` が偽なら何もしない。
       2. `set_processing(True)` / `set_status("元に戻しています...")`。ワーカーで
          `undo_service.undo(cancel_event=..., progress_callback=...)` を呼ぶ。
@@ -135,15 +135,15 @@ Phase 1（Models / Services）・Phase 2（Views）で実装済みの各層を `
          `log_service.log_undo(restored_items, session_id)` を呼ぶ。
       4. `action_frame.set_undo_enabled(undo_service.has_history())` を呼ぶ。
       5. 決定事項4に従い自動再スキャンしてプレビューを更新し、`set_processing(False)` / `self._busy = False`。
-- [ ] **キャンセル (`_on_cancel`)**: `self._cancel_event` が設定されていれば `.set()` し
+- [x] **キャンセル (`_on_cancel`)**: `self._cancel_event` が設定されていれば `.set()` し
       `set_status("キャンセル中...")` を表示する。
-- [ ] **終了処理 (`_on_close`)**: 決定事項6のとおり実装する。`self._busy` が偽なら即 `window.destroy()`。
+- [x] **終了処理 (`_on_close`)**: 決定事項6のとおり実装する。`self._busy` が偽なら即 `window.destroy()`。
       真なら `messagebox.askyesno` で確認し、「はい」の場合のみ `self._cancel_event` があれば `.set()` を
       呼び、`join()` せずに即 `window.destroy()` する。「いいえ」の場合は何もしない。
 
 ### 4. `__main__.py` / `main.py` の統合
 
-- [ ] `src/rename_date/__main__.py` の `main()` を実装する。
+- [x] `src/rename_date/__main__.py` の `main()` を実装する。
       1. `SingleInstanceGuard()` を `with` で使用する。`already_running` が真なら
          `activate_existing_window()` を試み、失敗した場合のみ一時的な非表示 `tk.Tk()` ルート経由で
          `messagebox.showinfo`（「既に起動しています」）を表示して終了する。
@@ -152,11 +152,11 @@ Phase 1（Models / Services）・Phase 2（Views）で実装済みの各層を `
       3. `MainWindow()` を生成し、`AppController(window, ...)` を生成する。
       4. `window.mainloop()` を呼ぶ。
       5. `finally` 節で `log_service.close()` と `logging.shutdown()` を呼ぶ。
-- [ ] ルートの `main.py` は現状の委譲コードのまま変更不要であることを確認する。
+- [x] ルートの `main.py` は現状の委譲コードのまま変更不要であることを確認する。
 
 ### 5. テスト
 
-- [ ] `tests/test_app_controller.py`（新規作成）: 実際の tkinter ウィジェットではなく、
+- [x] `tests/test_app_controller.py`（新規作成）: 実際の tkinter ウィジェットではなく、
       `MainWindow` / `ConfigFrame` / `PreviewFrame` / `ActionFrame` と同じ公開インターフェースを持つ
       フェイクのテストダブル（`after(delay, func, *args)` は即座に同期実行）を用意し、`mainloop` を
       起動せずに以下を検証する。
