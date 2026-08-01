@@ -76,10 +76,10 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ### 5. `MainWindow`
 
-- [ ] `src/rename_date/views/main_window.py`: `MainWindow(tkinterdnd2.TkinterDnD.Tk)` を実装する。
-- [ ] タイトル・既定サイズ（例: `900x600`）・`minsize` を設定する。
-- [ ] `grid` レイアウトで `ConfigFrame` を上段（`row=0, sticky="ew"`）、`PreviewFrame` を中段（`row=1, sticky="nsew"`）、`ActionFrame` を下段（`row=2, sticky="ew"`）に配置し、`rowconfigure(1, weight=1)` / `columnconfigure(0, weight=1)` で `PreviewFrame` のみを伸縮させる。
-- [ ] `self.config_frame` / `self.preview_frame` / `self.action_frame` をパブリック属性として公開する。
+- [x] `src/rename_date/views/main_window.py`: `MainWindow(tkinterdnd2.TkinterDnD.Tk)` を実装する。
+- [x] タイトル・既定サイズ（例: `900x600`）・`minsize` を設定する。
+- [x] `grid` レイアウトで `ConfigFrame` を上段（`row=0, sticky="ew"`）、`PreviewFrame` を中段（`row=1, sticky="nsew"`）、`ActionFrame` を下段（`row=2, sticky="ew"`）に配置し、`rowconfigure(1, weight=1)` / `columnconfigure(0, weight=1)` で `PreviewFrame` のみを伸縮させる。
+- [x] `self.config_frame` / `self.preview_frame` / `self.action_frame` をパブリック属性として公開する。
 
 ### 6. 手動デモスクリプト
 
