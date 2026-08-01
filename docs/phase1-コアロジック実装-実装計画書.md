@@ -47,11 +47,11 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 4. `PatternService`
 
-- [ ] `services/pattern_service.py`（新規作成）: `PatternService(base_dir: Path | None = None)` を実装する。
-- [ ] `load() -> list[PatternEntry]`: `patterns.json` 読込。欠損・パース失敗・スキーマ不正時は既定プリセット1件で新規生成し保存する。
-- [ ] `save(entries: list[PatternEntry]) -> None`: `validation.py` を用いて全件検証し、空リストは拒否する。一時ファイル書き込み後 `os.replace()` でアトミックに保存する。
-- [ ] `upsert(entry: PatternEntry) -> list[PatternEntry]`: `name` 一致で上書き、なければ追加してから保存する。
-- [ ] `delete(name: str) -> list[PatternEntry]`: 削除後の残数が0になる場合は拒否する。
+- [x] `services/pattern_service.py`（新規作成）: `PatternService(base_dir: Path | None = None)` を実装する。
+- [x] `load() -> list[PatternEntry]`: `patterns.json` 読込。欠損・パース失敗・スキーマ不正時は既定プリセット1件で新規生成し保存する。
+- [x] `save(entries: list[PatternEntry]) -> None`: `validation.py` を用いて全件検証し、空リストは拒否する。一時ファイル書き込み後 `os.replace()` でアトミックに保存する。
+- [x] `upsert(entry: PatternEntry) -> list[PatternEntry]`: `name` 一致で上書き、なければ追加してから保存する。
+- [x] `delete(name: str) -> list[PatternEntry]`: 削除後の残数が0になる場合は拒否する。
 
 ### 5. `ScannerService`
 
