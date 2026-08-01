@@ -20,9 +20,8 @@ Windows 用インストーラーとして配布できる状態にする。あわ
    （必要であれば後日 Inno Setup の GUID 生成ツールで差し替え可能）。
 4. **デスクトップショートカット**: インストーラーの `[Tasks]` で既定 ON（チェック済み状態）とする。
 5. **PowerShell ビルドスクリプトの配置**: `scripts/build-release.ps1` に配置する。
-6. **バージョン管理**: `pyproject.toml` の `version` を正とし、ビルドスクリプトがそこから読み取って
-   Inno Setup へ注入する。`src/rename_date/__init__.py` の `__version__` と不一致の場合はビルドを
-   止めずに警告のみ表示する。
+6. **バージョン管理**: `pyproject.toml` の `version` を唯一の正本とし、ビルドスクリプトがそこから
+      読み取って Inno Setup へ注入する。アプリケーションコードにバージョン値を重複定義しない。
 7. **スコープ外**: LICENSE ファイルの作成、アイコン画像自体のデザイン、
    `single_instance.py` への frozen 判定追加は行わない。
 
@@ -74,8 +73,6 @@ Windows 用インストーラーとして配布できる状態にする。あわ
 - [x] `$ErrorActionPreference = 'Stop'` を設定し、`$PSScriptRoot\..` をリポジトリルートとして
       `Push-Location` する（`finally` で `Pop-Location`）。
 - [x] `pyproject.toml` を読み込み、正規表現 `version\s*=\s*"([^"]+)"` でバージョン文字列を抽出する。
-- [x] `src/rename_date/__init__.py` の `__version__` と比較し、不一致であれば `Write-Warning` で
-      警告を表示する（ビルドは継続する）。
 - [x] `build/`, `dist/`, `installer/Output/` を `Remove-Item -Recurse -Force -ErrorAction
       SilentlyContinue` で事前クリーンする。
 - [x] `uv run pyinstaller installer/rename-date.spec --noconfirm --clean` を実行し、
@@ -95,16 +92,14 @@ Windows 用インストーラーとして配布できる状態にする。あわ
 
 ### 5. 動作確認
 
-- [ ] `pwsh -File scripts/build-release.ps1` を実行し、エラーなく `installer/Output/` に
+- [x] `pwsh -File scripts/build-release.ps1` を実行し、エラーなく `installer/Output/` に
       インストーラーが生成されることを確認する。
 - [ ] 生成されたインストーラーで インストール → 起動 → ドラッグ&ドロップ動作確認
       （tkdnd 資産同梱の確認）→ 簡単なリネーム実行 → アンインストールの一連を手動検証する。
-- [ ] アンインストール後も `%APPDATA%\rename-date` のログ・設定が残っていることを確認する。
-- [ ] `installer/assets/app.ico` が存在しない状態でもビルド・インストールが正常に完了することを
+- [x] アンインストール後も `%APPDATA%\rename-date` のログ・設定が残っていることを確認する。
+- [x] `installer/assets/app.ico` が存在しない状態でもビルド・インストールが正常に完了することを
       確認する（アイコン未設定時のフォールバック動作確認）。
-- [ ] `src/rename_date/__init__.py` の `__version__` を意図的にずらし、ビルドスクリプトが警告を
-      出しつつも処理を継続することを確認する。
-- [ ] `iscc.exe` が PATH にない状態を再現し、分かりやすいエラーでスクリプトが停止することを
+- [x] `iscc.exe` が PATH にない状態を再現し、分かりやすいエラーでスクリプトが停止することを
       確認する。
 
 ## スコープ外（本フェーズで実装しないこと）

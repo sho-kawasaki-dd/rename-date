@@ -14,13 +14,6 @@ try {
     }
     $version = $versionMatch.Groups[1].Value
 
-    $initPath = Join-Path $repositoryRoot 'src\rename_date\__init__.py'
-    $initContent = Get-Content -Path $initPath -Raw
-    $initVersionMatch = [regex]::Match($initContent, '__version__\s*=\s*"([^"]+)"')
-    if ($initVersionMatch.Success -and $initVersionMatch.Groups[1].Value -ne $version) {
-        Write-Warning "pyproject.toml のバージョン ($version) と __version__ ($($initVersionMatch.Groups[1].Value)) が一致しません。"
-    }
-
     foreach ($path in @('build', 'dist', 'installer\Output')) {
         Remove-Item -Path (Join-Path $repositoryRoot $path) -Recurse -Force -ErrorAction SilentlyContinue
     }
