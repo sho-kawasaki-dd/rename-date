@@ -416,6 +416,8 @@ class OutputTemplateEntry:
 4. 多重起動抑止の実装
 5. 統合テスト（ダミーフォルダ構造に対する実行と Undo 検証）
 
+詳細は [phase3-Controller統合と動作検証-実装計画書.md](./phase3-Controller統合と動作検証-実装計画書.md) を参照。
+
 ### **Phase 4: 配布パッケージング**
 
 1. PyInstaller 設定 (`installer/rename-date.spec`) の作成と実行ファイルの動作確認
