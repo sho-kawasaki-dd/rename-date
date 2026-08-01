@@ -47,15 +47,15 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ### 2. `ConfigFrame`
 
-- [ ] `src/rename_date/views/config_frame.py`: `ConfigFrame(ttk.Frame)` を実装する。コンストラクタ引数 `on_pattern_save`, `on_pattern_delete`, `on_template_save`, `on_template_delete`, `on_preview_request`（すべて既定 no-op の `Callable`）と `set_callbacks(**kwargs)` を定義する。
-- [ ] 対象パス欄: `Listbox` + 「フォルダ選択...」ボタン（`filedialog.askdirectory` で選択したフォルダを追加）+「選択項目を削除」ボタン（Listbox の選択行を内部リストと表示から削除）を配置する。
-- [ ] Listbox を `drop_target_register(DND_FILES)` でドロップ対象として登録し、`<<Drop>>` イベントで `event.data` を解析するヘルパー（中括弧`{}`で囲まれたパスを含む空白区切り文字列をパスのリストに分解する）を実装し、フォルダ・ファイルの両方を対象リストに追加する。
-- [ ] 内部状態 `self._targets: list[Path]` を持ち、追加時は `Path.resolve()` + `casefold()` 比較で重複を除外する。`get_targets() -> list[Path]` を公開する。
-- [ ] パターンプリセット欄: `Listbox(selectmode="extended")`（表示は `PatternEntry.name`、複数選択可）+「新規」「編集」「削除」ボタンを配置する。`set_patterns(entries: list[PatternEntry]) -> None` で一覧を更新し、`get_selected_patterns() -> list[PatternEntry]` を一覧の表示順（＝適用順）で公開する。
-- [ ] 出力テンプレート欄: `ttk.Combobox`（`state="readonly"`、単一選択、表示は `OutputTemplateEntry.name`）+「新規」「編集」「削除」ボタンを配置する。`set_templates(entries: list[OutputTemplateEntry]) -> None` で選択肢を更新し、`get_selected_template() -> OutputTemplateEntry | None` を公開する。
-- [ ] パターンの「新規」ボタン: `PatternEditDialog(self, initial=None)` を開き、`dialog.result` が得られたら `self._on_pattern_save(dialog.result)` を呼ぶ。「編集」ボタンは選択中の1件（複数選択時は先頭）で同ダイアログを開く。「削除」ボタンは `messagebox.askyesno` で確認後 `self._on_pattern_delete(selected.name)` を呼ぶ。
-- [ ] 出力テンプレートの「新規」「編集」「削除」ボタンは同様に `OutputTemplateEditDialog` と `on_template_save` / `on_template_delete` を用いて実装する。
-- [ ] 「プレビュー更新」ボタン: `self._on_preview_request()` を呼ぶ。
+- [x] `src/rename_date/views/config_frame.py`: `ConfigFrame(ttk.Frame)` を実装する。コンストラクタ引数 `on_pattern_save`, `on_pattern_delete`, `on_template_save`, `on_template_delete`, `on_preview_request`（すべて既定 no-op の `Callable`）と `set_callbacks(**kwargs)` を定義する。
+- [x] 対象パス欄: `Listbox` + 「フォルダ選択...」ボタン（`filedialog.askdirectory` で選択したフォルダを追加）+「選択項目を削除」ボタン（Listbox の選択行を内部リストと表示から削除）を配置する。
+- [x] Listbox を `drop_target_register(DND_FILES)` でドロップ対象として登録し、`<<Drop>>` イベントで `event.data` を解析するヘルパー（中括弧`{}`で囲まれたパスを含む空白区切り文字列をパスのリストに分解する）を実装し、フォルダ・ファイルの両方を対象リストに追加する。
+- [x] 内部状態 `self._targets: list[Path]` を持ち、追加時は `Path.resolve()` + `casefold()` 比較で重複を除外する。`get_targets() -> list[Path]` を公開する。
+- [x] パターンプリセット欄: `Listbox(selectmode="extended")`（表示は `PatternEntry.name`、複数選択可）+「新規」「編集」「削除」ボタンを配置する。`set_patterns(entries: list[PatternEntry]) -> None` で一覧を更新し、`get_selected_patterns() -> list[PatternEntry]` を一覧の表示順（＝適用順）で公開する。
+- [x] 出力テンプレート欄: `ttk.Combobox`（`state="readonly"`、単一選択、表示は `OutputTemplateEntry.name`）+「新規」「編集」「削除」ボタンを配置する。`set_templates(entries: list[OutputTemplateEntry]) -> None` で選択肢を更新し、`get_selected_template() -> OutputTemplateEntry | None` を公開する。
+- [x] パターンの「新規」ボタン: `PatternEditDialog(self, initial=None)` を開き、`dialog.result` が得られたら `self._on_pattern_save(dialog.result)` を呼ぶ。「編集」ボタンは選択中の1件（複数選択時は先頭）で同ダイアログを開く。「削除」ボタンは `messagebox.askyesno` で確認後 `self._on_pattern_delete(selected.name)` を呼ぶ。
+- [x] 出力テンプレートの「新規」「編集」「削除」ボタンは同様に `OutputTemplateEditDialog` と `on_template_save` / `on_template_delete` を用いて実装する。
+- [x] 「プレビュー更新」ボタン: `self._on_preview_request()` を呼ぶ。
 
 ### 3. `PreviewFrame`
 
