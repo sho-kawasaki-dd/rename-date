@@ -8,14 +8,16 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ## 要件
 
-- Views 層は `services/validation.py`（副作用のない純粋な検証関数）以外の Services を直接 import しないこと。`ScannerService` / `RenameService` / `UndoService` / `PatternService` の呼び出しは Phase 3 の `AppController` がコールバック経由で行う。
+- Views 層は `services/validation.py`（副作用のない純粋な検証関数）以外の Services を直接 import しないこと。`ScannerService` / `RenameService` / `UndoService` / `PatternService` / `OutputTemplateService` の呼び出しは Phase 3 の `AppController` がコールバック経由で行う。
 - 各 Frame はコンストラクタでコールバック関数（既定値は no-op）を受け取り、`set_callbacks(**kwargs)` で後から差し替え可能にすること。
 - `ConfigFrame`（開発計画書4.1章-1）:
   - 対象パスは `filedialog.askdirectory` によるフォルダ選択、および `tkinterdnd2` によるフォルダ/ファイルのドラッグ&ドロップの両方で追加できること。
   - 選択済み/ドロップ済みの対象は Listbox に一覧表示し、個別に削除できること。追加時は `Path.resolve()` + `casefold()` で重複を除去すること。
-  - 正規表現パターンは `ttk.Combobox`（readonly）でプリセット名から選択できること。プリセットの新規作成・編集はモーダルダイアログ（`PatternEditDialog`）で行い、保存前に `services.validation.compile_pattern` / `validate_output_template` で即時検証してエラーを表示すること。
-  - プリセット編集時は `name` を読み取り専用にすること（`PatternService.upsert` は `name` 一致で上書きするため、改名を許すと旧エントリが孤児化するのを防ぐ）。改名したい場合は新規作成＋旧削除で対応する運用とする。
-  - プリセット削除は確認ダイアログ（`messagebox.askyesno`）を経てから `on_preset_delete` コールバックを呼ぶこと。
+  - 正規表現パターンは**複数選択可能な一覧**（`Listbox(selectmode="extended")` 等）でパターンプリセット名から選択できること。選択順序は一覧の表示順とし、`get_selected_patterns() -> list[PatternEntry]` は表示順（＝適用順）でリストを返すこと。
+  - 出力テンプレートは `ttk.Combobox`（readonly、単一選択）で出力テンプレートプリセット名から選択できること。`get_selected_template() -> OutputTemplateEntry | None` を公開すること。
+  - パターンプリセットの新規作成・編集はモーダルダイアログ（`PatternEditDialog`、name+pattern のみを扱う）で行い、保存前に `services.validation.compile_pattern` で即時検証してエラーを表示すること。出力テンプレートプリセットの新規作成・編集は別のモーダルダイアログ（`OutputTemplateEditDialog`、name+template のみを扱う）で行い、保存前に `services.validation.validate_output_template` で即時検証してエラーを表示すること。
+  - いずれのプリセット編集時も `name` を読み取り専用にすること（`upsert` は `name` 一致で上書きするため、改名を許すと旧エントリが孤児化するのを防ぐ）。改名したい場合は新規作成＋旧削除で対応する運用とする。
+  - プリセット削除（パターン・出力テンプレートとも）は確認ダイアログ（`messagebox.askyesno`）を経てから対応するコールバック（`on_pattern_delete` / `on_template_delete`）を呼ぶこと。
   - 「プレビュー更新」ボタン押下で `on_preview_request` コールバックを呼ぶこと。
 - `PreviewFrame`（開発計画書4.1章-2）:
   - `ttk.Treeview` で 状態 / 変更前ファイル名 / 変更後ファイル名 / パス の4列を表示すること。表示専用とし、個別チェックによる取捨選択は行わない。
@@ -34,23 +36,25 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ## タスク
 
-### 1. `PatternEditDialog`（新規）
+### 1. `PatternEditDialog` / `OutputTemplateEditDialog`（新規）
 
 - [ ] `src/rename_date/views/pattern_dialog.py`（新規作成）: `PatternEditDialog(tk.Toplevel)` を実装する。コンストラクタは `parent`, `initial: PatternEntry | None = None` を受け取る。
-- [ ] name / pattern / output_template の3つの `ttk.Entry` を配置する。`initial` が指定された場合は値を初期表示し、`initial` がある場合（編集モード）は name の Entry を読み取り専用（`state="readonly"` または `state="disabled"`）にする。
-- [ ] 「OK」ボタン押下時に `services.validation.compile_pattern(pattern)` / `validate_output_template(output_template)` を呼び、`InvalidPatternError` / `InvalidTemplateError` を捕捉して `ttk.Label` 等でエラーメッセージを表示し、ダイアログを閉じないこと。
-- [ ] 検証成功時は `self.result = PatternEntry(name, pattern, output_template)` を設定してダイアログを閉じる。「キャンセル」ボタン押下時は `self.result = None` とする。呼び出し元は `dialog.wait_window()` 後に `dialog.result` を参照する。
+- [ ] name / pattern の2つの `ttk.Entry` を配置する。`initial` が指定された場合は値を初期表示し、`initial` がある場合（編集モード）は name の Entry を読み取り専用（`state="readonly"` または `state="disabled"`）にする。
+- [ ] 「OK」ボタン押下時に `services.validation.compile_pattern(pattern)` を呼び、`InvalidPatternError` を捕捉して `ttk.Label` 等でエラーメッセージを表示し、ダイアログを閉じないこと。
+- [ ] 検証成功時は `self.result = PatternEntry(name, pattern)` を設定してダイアログを閉じる。「キャンセル」ボタン押下時は `self.result = None` とする。呼び出し元は `dialog.wait_window()` 後に `dialog.result` を参照する。
+- [ ] `src/rename_date/views/output_template_dialog.py`（新規作成）: `OutputTemplateEditDialog(tk.Toplevel)` を実装する。コンストラクタは `parent`, `initial: OutputTemplateEntry | None = None` を受け取り、name / template の2つの `ttk.Entry` を配置する。編集モードでは name を読み取り専用にする。
+- [ ] `OutputTemplateEditDialog` の「OK」ボタン押下時に `services.validation.validate_output_template(template)` を呼び、`InvalidTemplateError` を捕捉してエラーメッセージを表示し、ダイアログを閉じないこと。検証成功時は `self.result = OutputTemplateEntry(name, template)` を設定する。「キャンセル」時は `self.result = None` とする。
 
 ### 2. `ConfigFrame`
 
-- [ ] `src/rename_date/views/config_frame.py`: `ConfigFrame(ttk.Frame)` を実装する。コンストラクタ引数 `on_preset_save`, `on_preset_delete`, `on_preview_request`（すべて既定 no-op の `Callable`）と `set_callbacks(**kwargs)` を定義する。
+- [ ] `src/rename_date/views/config_frame.py`: `ConfigFrame(ttk.Frame)` を実装する。コンストラクタ引数 `on_pattern_save`, `on_pattern_delete`, `on_template_save`, `on_template_delete`, `on_preview_request`（すべて既定 no-op の `Callable`）と `set_callbacks(**kwargs)` を定義する。
 - [ ] 対象パス欄: `Listbox` + 「フォルダ選択...」ボタン（`filedialog.askdirectory` で選択したフォルダを追加）+「選択項目を削除」ボタン（Listbox の選択行を内部リストと表示から削除）を配置する。
 - [ ] Listbox を `drop_target_register(DND_FILES)` でドロップ対象として登録し、`<<Drop>>` イベントで `event.data` を解析するヘルパー（中括弧`{}`で囲まれたパスを含む空白区切り文字列をパスのリストに分解する）を実装し、フォルダ・ファイルの両方を対象リストに追加する。
 - [ ] 内部状態 `self._targets: list[Path]` を持ち、追加時は `Path.resolve()` + `casefold()` 比較で重複を除外する。`get_targets() -> list[Path]` を公開する。
-- [ ] パターンプリセット欄: `ttk.Combobox`（`state="readonly"`、表示は `PatternEntry.name`）+「新規」「編集」「削除」ボタンを配置する。`set_presets(entries: list[PatternEntry]) -> None` で選択肢を更新し、`get_selected_pattern() -> PatternEntry | None` を公開する。
-- [ ] 「新規」ボタン: `PatternEditDialog(self, initial=None)` を開き、`dialog.result` が得られたら `self._on_preset_save(dialog.result)` を呼ぶ。
-- [ ] 「編集」ボタン: 選択中のプリセットで `PatternEditDialog(self, initial=selected)` を開き、結果があれば同様に `on_preset_save` を呼ぶ。
-- [ ] 「削除」ボタン: `messagebox.askyesno` で確認後、`self._on_preset_delete(selected.name)` を呼ぶ。
+- [ ] パターンプリセット欄: `Listbox(selectmode="extended")`（表示は `PatternEntry.name`、複数選択可）+「新規」「編集」「削除」ボタンを配置する。`set_patterns(entries: list[PatternEntry]) -> None` で一覧を更新し、`get_selected_patterns() -> list[PatternEntry]` を一覧の表示順（＝適用順）で公開する。
+- [ ] 出力テンプレート欄: `ttk.Combobox`（`state="readonly"`、単一選択、表示は `OutputTemplateEntry.name`）+「新規」「編集」「削除」ボタンを配置する。`set_templates(entries: list[OutputTemplateEntry]) -> None` で選択肢を更新し、`get_selected_template() -> OutputTemplateEntry | None` を公開する。
+- [ ] パターンの「新規」ボタン: `PatternEditDialog(self, initial=None)` を開き、`dialog.result` が得られたら `self._on_pattern_save(dialog.result)` を呼ぶ。「編集」ボタンは選択中の1件（複数選択時は先頭）で同ダイアログを開く。「削除」ボタンは `messagebox.askyesno` で確認後 `self._on_pattern_delete(selected.name)` を呼ぶ。
+- [ ] 出力テンプレートの「新規」「編集」「削除」ボタンは同様に `OutputTemplateEditDialog` と `on_template_save` / `on_template_delete` を用いて実装する。
 - [ ] 「プレビュー更新」ボタン: `self._on_preview_request()` を呼ぶ。
 
 ### 3. `PreviewFrame`
@@ -80,11 +84,11 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 ### 6. 手動デモスクリプト
 
 - [ ] `scripts/`（新規ディレクトリ、配布対象外）を作成する。
-- [ ] `scripts/demo_views.py`（新規作成）: 先頭コメントで「開発用の手動確認スクリプトであり配布物には含めない」旨を明記する。`MainWindow` を生成し、ダミーの `PatternEntry` リスト（複数件）、ダミーの `RenameItem` リスト（`PENDING` / `INVALID_DATE` / `RESOLVED_CONFLICT` を含む）、ダミーの件数を各 Frame の `set_presets` / `set_items` / `set_counts` に渡し、コールバックには `print()` するのみのダミー関数を注入して `mainloop()` を起動する。
+- [ ] `scripts/demo_views.py`（新規作成）: 先頭コメントで「開発用の手動確認スクリプトであり配布物には含めない」旨を明記する。`MainWindow` を生成し、ダミーの `PatternEntry` リスト（複数件）とダミーの `OutputTemplateEntry` リスト（複数件）、ダミーの `RenameItem` リスト（`PENDING` / `INVALID_DATE` / `RESOLVED_CONFLICT` を含む）、ダミーの件数を各 Frame の `set_patterns` / `set_templates` / `set_items` / `set_counts` に渡し、コールバックには `print()` するのみのダミー関数を注入して `mainloop()` を起動する。
 
 ### 7. 動作確認
 
-- [ ] `uv run python scripts/demo_views.py` を実行し、フォルダ選択・ドラッグ&ドロップでの対象追加・個別削除、プリセットの新規/編集（不正な正規表現・不正なテンプレートでエラー表示されること）/削除（確認ダイアログ）、プレビュー更新ボタンのコールバック発火、Treeview での灰色（無効）・強調表示（衝突）、進捗バー・ステータス・件数ラベルの更新、Undoボタンの活性/非活性切り替えを目視確認する。
+- [ ] `uv run python scripts/demo_views.py` を実行し、フォルダ選択・ドラッグ&ドロップでの対象追加・個別削除、パターンプリセットの**複数選択**と新規/編集（不正な正規表現でエラー表示されること）/削除（確認ダイアログ）、出力テンプレートプリセットの単一選択と新規/編集（不正なテンプレートでエラー表示されること）/削除、プレビュー更新ボタンのコールバック発火、Treeview での灰色（無効）・強調表示（衝突）、進捗バー・ステータス・件数ラベルの更新、Undoボタンの活性/非活性切り替えを目視確認する。
 - [ ] `uv run pytest --cov=src/rename_date` を実行し、既存テスト（Services層）に回帰がないことを確認する。
 - [ ] Pylance等の静的検査でエラーが出ていないことを確認する。
 
