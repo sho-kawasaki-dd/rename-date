@@ -40,9 +40,9 @@ Phase 1 完成時点では `PatternEntry`（`name` + `pattern` + `output_templat
 
 ### 4. `OutputTemplateService`（新規）
 
-- [ ] `services/output_template_service.py`（新規作成）: `PatternService` と同様の構造（`__init__(base_dir: Path | None = None)`, `load() -> list[OutputTemplateEntry]`, `save(entries) -> None`, `upsert(entry) -> list[OutputTemplateEntry]`, `delete(name) -> list[OutputTemplateEntry]`）で `OutputTemplateEntry` を `output_templates.json` に永続化する。
-- [ ] 検証は `services.validation.validate_output_template` のみを用いる。最低1件維持・同名一意・アトミック保存（一時ファイル+`os.replace()`）・破損時フォールバックの契約は `PatternService` と同じくする。
-- [ ] 既定エントリは `config.DEFAULT_TEMPLATE_NAME` / `config.DEFAULT_OUTPUT_TEMPLATE` から生成する。
+- [x] `services/output_template_service.py`（新規作成）: `PatternService` と同様の構造（`__init__(base_dir: Path | None = None)`, `load() -> list[OutputTemplateEntry]`, `save(entries) -> None`, `upsert(entry) -> list[OutputTemplateEntry]`, `delete(name) -> list[OutputTemplateEntry]`）で `OutputTemplateEntry` を `output_templates.json` に永続化する。
+- [x] 検証は `services.validation.validate_output_template` のみを用いる。最低1件維持・同名一意・アトミック保存（一時ファイル+`os.replace()`）・破損時フォールバックの契約は `PatternService` と同じくする。
+- [x] 既定エントリは `config.DEFAULT_TEMPLATE_NAME` / `config.DEFAULT_OUTPUT_TEMPLATE` から生成する。
 
 ### 5. `ScannerService` の改訂
 
