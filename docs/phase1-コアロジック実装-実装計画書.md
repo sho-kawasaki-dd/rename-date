@@ -41,9 +41,9 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 3. 共有検証ロジック
 
-- [ ] `services/validation.py`（新規作成）: `InvalidPatternError` / `InvalidTemplateError`（`ValueError`継承）を定義する。
-- [ ] `compile_pattern(pattern: str) -> re.Pattern[str]`: コンパイル失敗、またはキャプチャグループ数が3でない場合に `InvalidPatternError` を送出する。
-- [ ] `validate_output_template(template: str) -> None`: `{Y}` `{M}` `{D}` を各1回以上含むこと、Windows のファイル名不可文字を含まないことを検証し、違反時は `InvalidTemplateError` を送出する。
+- [x] `services/validation.py`（新規作成）: `InvalidPatternError` / `InvalidTemplateError`（`ValueError`継承）を定義する。
+- [x] `compile_pattern(pattern: str) -> re.Pattern[str]`: コンパイル失敗、またはキャプチャグループ数が3でない場合に `InvalidPatternError` を送出する。
+- [x] `validate_output_template(template: str) -> None`: `{Y}` `{M}` `{D}` を各1回以上含むこと、Windows のファイル名不可文字を含まないことを検証し、違反時は `InvalidTemplateError` を送出する。
 
 ### 4. `PatternService`
 
