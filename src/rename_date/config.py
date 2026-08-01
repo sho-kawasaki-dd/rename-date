@@ -6,6 +6,7 @@ from pathlib import Path
 
 DEFAULT_PATTERN_NAME = "既定 (YYYY.M.D)"
 DEFAULT_PATTERN_REGEX = r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)"
+DEFAULT_TEMPLATE_NAME = "既定 (YYYYMMDD)"
 DEFAULT_OUTPUT_TEMPLATE = "{Y}{M}{D}"
 
 EXCLUDED_DIR_NAMES = {

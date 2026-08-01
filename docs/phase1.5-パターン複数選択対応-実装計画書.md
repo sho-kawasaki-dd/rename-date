@@ -30,7 +30,7 @@ Phase 1 完成時点では `PatternEntry`（`name` + `pattern` + `output_templat
 
 ### 2. `config.py`
 
-- [ ] `DEFAULT_TEMPLATE_NAME` 定数を追加する（例: `"既定 (YYYYMMDD)"`）。既存の `DEFAULT_PATTERN_NAME` / `DEFAULT_PATTERN_REGEX` / `DEFAULT_OUTPUT_TEMPLATE` は流用する。
+- [x] `DEFAULT_TEMPLATE_NAME` 定数を追加する（例: `"既定 (YYYYMMDD)"`）。既存の `DEFAULT_PATTERN_NAME` / `DEFAULT_PATTERN_REGEX` / `DEFAULT_OUTPUT_TEMPLATE` は流用する。
 
 ### 3. `PatternService` の改訂
 
