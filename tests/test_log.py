@@ -44,6 +44,36 @@ def test_log_handler_is_not_duplicated(tmp_path):
     second.close()
 
 
+def test_log_reads_entries_and_unescapes_fields(tmp_path):
+    service = LogService(tmp_path)
+    item = RenameItem(
+        Path("before\tname\n.txt"),
+        Path("after.txt"),
+        ItemStatus.ERROR,
+        "message\tline\nnext",
+    )
+
+    service.log_rename([item], "session-1")
+    entries = service.read_entries()
+    service.close()
+
+    assert len(entries) == 1
+    assert entries[0].session_id == "session-1"
+    assert entries[0].action == "RENAME"
+    assert entries[0].status == "ERROR"
+    assert entries[0].original_path == "before\tname\n.txt"
+    assert entries[0].message == "message\tline\nnext"
+
+
+def test_log_read_skips_invalid_lines_and_missing_file(tmp_path):
+    service = LogService(tmp_path)
+    assert service.read_entries() == []
+
+    service.log_path.write_text("invalid\tline\n", encoding="utf-8")
+    assert service.read_entries() == []
+    service.close()
+
+
 def test_log_rotates_with_expected_names_and_limit(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "LOG_MAX_BYTES", 100)
     monkeypatch.setattr(config, "LOG_BACKUP_COUNT", 2)

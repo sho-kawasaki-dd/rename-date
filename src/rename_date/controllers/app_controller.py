@@ -1,6 +1,7 @@
 """Coordinate views and services for the rename workflow."""
 
 from pathlib import Path
+import os
 import logging
 import threading
 import uuid
@@ -65,7 +66,26 @@ class AppController:
 			on_undo=self._on_undo,
 			on_cancel=self._on_cancel,
 		)
+		self.window.log_frame.set_callbacks(
+			on_refresh=self._on_log_refresh,
+			on_open_folder=self._on_open_log_folder,
+		)
+		self._on_log_refresh()
 		self.window.protocol("WM_DELETE_WINDOW", self._on_close)
+
+	def _on_log_refresh(self) -> None:
+		try:
+			entries = self.log_service.read_entries()
+		except OSError as error:
+			messagebox.showerror("ログ読み込みエラー", str(error), parent=self.window)
+		else:
+			self.window.log_frame.set_entries(entries)
+
+	def _on_open_log_folder(self) -> None:
+		try:
+			os.startfile(str(self.log_service.base_dir))
+		except OSError as error:
+			messagebox.showerror("ログフォルダエラー", str(error), parent=self.window)
 
 	def _on_pattern_save(self, entry: PatternEntry) -> None:
 		try:

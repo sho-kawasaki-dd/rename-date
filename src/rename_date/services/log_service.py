@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable
 
 from rename_date import config
+from rename_date.models.log_entry import LogEntry
 from rename_date.models.rename_item import RenameItem
 
 
@@ -27,6 +28,19 @@ class LogService:
 
 	def log_undo(self, items: Iterable[RenameItem], session_id: str) -> None:
 		self._log_items(items, session_id, "UNDO")
+
+	def read_entries(self) -> list[LogEntry]:
+		"""Read valid records from the current audit log file."""
+		if not self.log_path.exists():
+			return []
+
+		entries: list[LogEntry] = []
+		for line in self.log_path.read_text(encoding="utf-8").splitlines():
+			fields = line.split("\t")
+			if len(fields) != 7:
+				continue
+			entries.append(LogEntry(*(self._unescape(field) for field in fields)))
+		return entries
 
 	def close(self) -> None:
 		"""Detach and close this service's logging handler."""
@@ -87,3 +101,7 @@ class LogService:
 	@staticmethod
 	def _escape(value: str) -> str:
 		return value.replace("\t", r"\t").replace("\r", r"\r").replace("\n", r"\n")
+
+	@staticmethod
+	def _unescape(value: str) -> str:
+		return value.replace(r"\t", "\t").replace(r"\r", "\r").replace(r"\n", "\n")

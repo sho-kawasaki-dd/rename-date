@@ -84,11 +84,24 @@ class FakeActionFrame:
 		return self.log_enabled
 
 
+class FakeLogFrame:
+	def __init__(self) -> None:
+		self.callbacks = {}
+		self.entries = []
+
+	def set_callbacks(self, **callbacks):
+		self.callbacks.update(callbacks)
+
+	def set_entries(self, entries):
+		self.entries = list(entries)
+
+
 class FakeWindow:
 	def __init__(self) -> None:
 		self.config_frame = FakeConfigFrame()
 		self.preview_frame = FakePreviewFrame()
 		self.action_frame = FakeActionFrame()
+		self.log_frame = FakeLogFrame()
 		self.protocols = {}
 		self.destroyed = False
 
@@ -212,12 +225,16 @@ class FakeLogService:
 	def __init__(self):
 		self.rename_calls = []
 		self.undo_calls = []
+		self.base_dir = Path(".")
 
 	def log_rename(self, items, session_id):
 		self.rename_calls.append((list(items), session_id))
 
 	def log_undo(self, items, session_id):
 		self.undo_calls.append((list(items), session_id))
+
+	def read_entries(self):
+		return []
 
 
 def make_controller(monkeypatch, tmp_path):
