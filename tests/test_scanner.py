@@ -13,8 +13,8 @@ from rename_date.services.validation import InvalidPatternError, InvalidTemplate
 def scan_default(targets, default_pattern):
     return ScannerService().scan(
         targets,
-        default_pattern.pattern,
-        default_pattern.output_template,
+        [default_pattern.pattern],
+        "{Y}{M}{D}",
     )
 
 
@@ -42,7 +42,7 @@ def test_supports_custom_template_and_preserves_extension(tmp_path):
 
     items = ScannerService().scan(
         [source],
-        r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+        [r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)"],
         "{Y}-{M}-{D}",
     )
 
@@ -53,7 +53,7 @@ def test_excludes_unchanged_files(tmp_path):
     source = tmp_path / "20240101.txt"
     source.write_text("sample", encoding="utf-8")
 
-    assert ScannerService().scan([source], r"(2024)(01)(01)", "{Y}{M}{D}") == []
+    assert ScannerService().scan([source], [r"(2024)(01)(01)"], "{Y}{M}{D}") == []
 
 
 def test_rejects_invalid_pattern_and_template(tmp_path, default_pattern):
@@ -62,11 +62,56 @@ def test_rejects_invalid_pattern_and_template(tmp_path, default_pattern):
     service = ScannerService()
 
     with pytest.raises(InvalidPatternError):
-        service.scan([source], "(2024)", default_pattern.output_template)
+        service.scan([source], ["(2024)"], "{Y}{M}{D}")
     with pytest.raises(InvalidPatternError):
-        service.scan([source], "(2024)(01)", default_pattern.output_template)
+        service.scan([source], ["(2024)(01)"], "{Y}{M}{D}")
     with pytest.raises(InvalidTemplateError):
-        service.scan([source], default_pattern.pattern, "{Y}{M}")
+        service.scan([source], [default_pattern.pattern], "{Y}{M}")
+    with pytest.raises(InvalidPatternError):
+        service.scan([source], [], "{Y}{M}{D}")
+
+
+def test_applies_multiple_patterns_in_order(tmp_path):
+    source = tmp_path / "報告 (2024.1.5) - 2025-2-3.txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+            r"(\d{4})-(\d{1,2})-(\d{1,2})",
+        ],
+        "{Y}{M}{D}",
+    )
+
+    assert items[0].target_name == "報告 20240105 - 20250203.txt"
+
+
+def test_excludes_file_matching_none_of_the_patterns(tmp_path):
+    source = tmp_path / "readme.txt"
+    source.write_text("sample", encoding="utf-8")
+
+    assert ScannerService().scan(
+        [source],
+        [r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)"],
+        "{Y}{M}{D}",
+    ) == []
+
+
+def test_marks_invalid_date_from_later_pattern(tmp_path):
+    source = tmp_path / "不正 (2024.1.1) - 2024-13-1.txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+            r"(\d{4})-(\d{1,2})-(\d{1,2})",
+        ],
+        "{Y}{M}{D}",
+    )
+
+    assert items[0].status == ItemStatus.INVALID_DATE
 
 
 def test_deduplicates_mixed_folder_and_file_targets(sample_tree, default_pattern):
@@ -85,8 +130,8 @@ def test_cancel_event_returns_partial_results(tmp_path, default_pattern):
     assert (
         ScannerService().scan(
             [tmp_path],
-            default_pattern.pattern,
-            default_pattern.output_template,
+            [default_pattern.pattern],
+            "{Y}{M}{D}",
             cancel_event,
         )
         == []

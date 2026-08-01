@@ -3,6 +3,7 @@
 import pytest
 
 from rename_date import config
+from rename_date.models.output_template_entry import OutputTemplateEntry
 from rename_date.models.pattern_entry import PatternEntry
 
 
@@ -11,7 +12,14 @@ def default_pattern() -> PatternEntry:
 	return PatternEntry(
 		name=config.DEFAULT_PATTERN_NAME,
 		pattern=config.DEFAULT_PATTERN_REGEX,
-		output_template=config.DEFAULT_OUTPUT_TEMPLATE,
+	)
+
+
+@pytest.fixture
+def default_output_template() -> OutputTemplateEntry:
+	return OutputTemplateEntry(
+		name=config.DEFAULT_TEMPLATE_NAME,
+		template=config.DEFAULT_OUTPUT_TEMPLATE,
 	)
 
 

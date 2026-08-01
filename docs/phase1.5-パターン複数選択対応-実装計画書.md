@@ -55,14 +55,14 @@ Phase 1 完成時点では `PatternEntry`（`name` + `pattern` + `output_templat
 
 ### 6. テスト改修
 
-- [ ] `tests/conftest.py`: `default_pattern` fixture を `PatternEntry(name, pattern)`（`output_template` なし）に変更し、`default_output_template` fixture（`OutputTemplateEntry`）を追加する。
-- [ ] `tests/test_scanner.py`: 既存テストの `scan()` 呼び出しを `patterns: list[str]` + `output_template: str` に更新する。以下のケースを追加する。
+- [x] `tests/conftest.py`: `default_pattern` fixture を `PatternEntry(name, pattern)`（`output_template` なし）に変更し、`default_output_template` fixture（`OutputTemplateEntry`）を追加する。
+- [x] `tests/test_scanner.py`: 既存テストの `scan()` 呼び出しを `patterns: list[str]` + `output_template: str` に更新する。以下のケースを追加する。
   - 複数パターンの逐次適用（例: 括弧型パターンとハイフン型パターンを両方選択し、1ファイル内の異なる箇所をそれぞれ変換する）
   - どのパターンにもマッチしないファイルの除外
   - パイプライン2番目以降のパターンで不正日付を検出した場合の `INVALID_DATE` 判定
   - 空の `patterns` リストを渡した場合に `InvalidPatternError` を送出すること
-- [ ] `tests/test_pattern_service.py`: `PatternEntry` から `output_template` を除いたアサーションに更新する。
-- [ ] `tests/test_output_template_service.py`（新規作成）: JSON読込/保存、初回起動時の既定プリセット生成、不正テンプレート（プレースホルダ欠落・禁止文字）の保存拒否、壊れたJSONからのフォールバック、最後の1件削除拒否を検証する。
+- [x] `tests/test_pattern_service.py`: `PatternEntry` から `output_template` を除いたアサーションに更新する。
+- [x] `tests/test_output_template_service.py`（新規作成）: JSON読込/保存、初回起動時の既定プリセット生成、不正テンプレート（プレースホルダ欠落・禁止文字）の保存拒否、壊れたJSONからのフォールバック、最後の1件削除拒否を検証する。
 
 ### 7. 動作確認
 
