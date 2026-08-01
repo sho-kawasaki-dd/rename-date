@@ -38,12 +38,12 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ### 1. `PatternEditDialog` / `OutputTemplateEditDialog`（新規）
 
-- [ ] `src/rename_date/views/pattern_dialog.py`（新規作成）: `PatternEditDialog(tk.Toplevel)` を実装する。コンストラクタは `parent`, `initial: PatternEntry | None = None` を受け取る。
-- [ ] name / pattern の2つの `ttk.Entry` を配置する。`initial` が指定された場合は値を初期表示し、`initial` がある場合（編集モード）は name の Entry を読み取り専用（`state="readonly"` または `state="disabled"`）にする。
-- [ ] 「OK」ボタン押下時に `services.validation.compile_pattern(pattern)` を呼び、`InvalidPatternError` を捕捉して `ttk.Label` 等でエラーメッセージを表示し、ダイアログを閉じないこと。
-- [ ] 検証成功時は `self.result = PatternEntry(name, pattern)` を設定してダイアログを閉じる。「キャンセル」ボタン押下時は `self.result = None` とする。呼び出し元は `dialog.wait_window()` 後に `dialog.result` を参照する。
-- [ ] `src/rename_date/views/output_template_dialog.py`（新規作成）: `OutputTemplateEditDialog(tk.Toplevel)` を実装する。コンストラクタは `parent`, `initial: OutputTemplateEntry | None = None` を受け取り、name / template の2つの `ttk.Entry` を配置する。編集モードでは name を読み取り専用にする。
-- [ ] `OutputTemplateEditDialog` の「OK」ボタン押下時に `services.validation.validate_output_template(template)` を呼び、`InvalidTemplateError` を捕捉してエラーメッセージを表示し、ダイアログを閉じないこと。検証成功時は `self.result = OutputTemplateEntry(name, template)` を設定する。「キャンセル」時は `self.result = None` とする。
+- [x] `src/rename_date/views/pattern_dialog.py`（新規作成）: `PatternEditDialog(tk.Toplevel)` を実装する。コンストラクタは `parent`, `initial: PatternEntry | None = None` を受け取る。
+- [x] name / pattern の2つの `ttk.Entry` を配置する。`initial` が指定された場合は値を初期表示し、`initial` がある場合（編集モード）は name の Entry を読み取り専用（`state="readonly"` または `state="disabled"`）にする。
+- [x] 「OK」ボタン押下時に `services.validation.compile_pattern(pattern)` を呼び、`InvalidPatternError` を捕捉して `ttk.Label` 等でエラーメッセージを表示し、ダイアログを閉じないこと。
+- [x] 検証成功時は `self.result = PatternEntry(name, pattern)` を設定してダイアログを閉じる。「キャンセル」ボタン押下時は `self.result = None` とする。呼び出し元は `dialog.wait_window()` 後に `dialog.result` を参照する。
+- [x] `src/rename_date/views/output_template_dialog.py`（新規作成）: `OutputTemplateEditDialog(tk.Toplevel)` を実装する。コンストラクタは `parent`, `initial: OutputTemplateEntry | None = None` を受け取り、name / template の2つの `ttk.Entry` を配置する。編集モードでは name を読み取り専用にする。
+- [x] `OutputTemplateEditDialog` の「OK」ボタン押下時に `services.validation.validate_output_template(template)` を呼び、`InvalidTemplateError` を捕捉してエラーメッセージを表示し、ダイアログを閉じないこと。検証成功時は `self.result = OutputTemplateEntry(name, template)` を設定する。「キャンセル」時は `self.result = None` とする。
 
 ### 2. `ConfigFrame`
 
