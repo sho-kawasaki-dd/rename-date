@@ -10,7 +10,11 @@ from typing import Iterable
 
 from rename_date import config
 from rename_date.models.rename_item import ItemStatus, RenameItem
-from rename_date.services.validation import compile_pattern, validate_output_template
+from rename_date.services.validation import (
+	InvalidPatternError,
+	compile_pattern,
+	validate_output_template,
+)
 
 
 class ScannerService:
@@ -19,12 +23,14 @@ class ScannerService:
 	def scan(
 		self,
 		targets: Iterable[Path | str] | Path | str,
-		pattern: str,
+		patterns: list[str],
 		output_template: str,
 		cancel_event: Event | None = None,
 	) -> list[RenameItem]:
 		"""Scan targets and calculate collision-free rename destinations."""
-		compiled = compile_pattern(pattern)
+		if not patterns:
+			raise InvalidPatternError("at least one pattern is required")
+		compiled_patterns = [compile_pattern(pattern) for pattern in patterns]
 		validate_output_template(output_template)
 		files = self._collect_files(targets, cancel_event)
 		reservations: dict[Path, set[str]] = {}
@@ -34,15 +40,30 @@ class ScannerService:
 			if cancel_event is not None and cancel_event.is_set():
 				break
 
-			matches = list(compiled.finditer(source.stem))
-			if not matches:
-				continue
+			working_stem = source.stem
+			matched_any = False
+			invalid_date = False
+			for compiled in compiled_patterns:
+				matches = list(compiled.finditer(working_stem))
+				if not matches:
+					continue
+				matched_any = True
 
-			try:
-				for match in matches:
+				try:
+					for match in matches:
+						year, month, day = self._date_parts(match)
+						date(year, month, day)
+				except (TypeError, ValueError):
+					invalid_date = True
+					break
+
+				def replace_match(match: re.Match[str]) -> str:
 					year, month, day = self._date_parts(match)
-					date(year, month, day)
-			except (TypeError, ValueError):
+					return self._render_template(output_template, year, month, day)
+
+				working_stem = compiled.sub(replace_match, working_stem)
+
+			if invalid_date:
 				results.append(
 					RenameItem(
 						original_path=source,
@@ -52,13 +73,10 @@ class ScannerService:
 					)
 				)
 				continue
+			if not matched_any:
+				continue
 
-			def replace_match(match: re.Match[str]) -> str:
-				year, month, day = self._date_parts(match)
-				return self._render_template(output_template, year, month, day)
-
-			new_stem = compiled.sub(replace_match, source.stem)
-			new_stem = re.sub(r"\s{2,}", " ", new_stem).strip()
+			new_stem = re.sub(r"\s{2,}", " ", working_stem).strip()
 			if new_stem == source.stem:
 				continue
 

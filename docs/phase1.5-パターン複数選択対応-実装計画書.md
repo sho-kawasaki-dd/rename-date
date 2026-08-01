@@ -46,12 +46,12 @@ Phase 1 完成時点では `PatternEntry`（`name` + `pattern` + `output_templat
 
 ### 5. `ScannerService` の改訂
 
-- [ ] `services/scanner_service.py`: `scan(targets, patterns: list[str], output_template: str, cancel_event=None)` にシグネチャ変更する。`patterns` が空なら `InvalidPatternError` を送出する。
-- [ ] 各パターンを事前にすべて `compile_pattern` で検証し、`output_template` を `validate_output_template` で検証する。
-- [ ] ファイルごとに working stem を保持し、`patterns` をリスト順に逐次適用する。各パターンの `finditer` 結果すべてについて日付妥当性を検証し、不正なら `INVALID_DATE` としてそのファイルの処理を打ち切る。妥当なら共通の `output_template` で `re.sub` して working stem を更新し、次のパターンへ進む。
-- [ ] どのパターンにも一度もマッチしなかったファイルは結果から除外する。
-- [ ] 全パターン適用後の working stem に対して、連続空白畳み込み・トリムを1回行い、元の stem と同一なら除外する。
-- [ ] 衝突回避ロジック（親ディレクトリごとの予約済み名・`_1,_2...`連番・`RESOLVED_CONFLICT`）は変更しない。
+- [x] `services/scanner_service.py`: `scan(targets, patterns: list[str], output_template: str, cancel_event=None)` にシグネチャ変更する。`patterns` が空なら `InvalidPatternError` を送出する。
+- [x] 各パターンを事前にすべて `compile_pattern` で検証し、`output_template` を `validate_output_template` で検証する。
+- [x] ファイルごとに working stem を保持し、`patterns` をリスト順に逐次適用する。各パターンの `finditer` 結果すべてについて日付妥当性を検証し、不正なら `INVALID_DATE` としてそのファイルの処理を打ち切る。妥当なら共通の `output_template` で `re.sub` して working stem を更新し、次のパターンへ進む。
+- [x] どのパターンにも一度もマッチしなかったファイルは結果から除外する。
+- [x] 全パターン適用後の working stem に対して、連続空白畳み込み・トリムを1回行い、元の stem と同一なら除外する。
+- [x] 衝突回避ロジック（親ディレクトリごとの予約済み名・`_1,_2...`連番・`RESOLVED_CONFLICT`）は変更しない。
 
 ### 6. テスト改修
 
