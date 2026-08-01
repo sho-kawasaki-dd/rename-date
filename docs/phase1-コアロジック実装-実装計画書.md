@@ -80,12 +80,12 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 8. テスト実装
 
-- [ ] `tests/conftest.py`: 開発計画書11.2章のダミーフォルダ構造を `tmp_path` 上に生成する fixture、既定 `PatternEntry` を返す fixture を実装する。
-- [ ] `tests/test_scanner.py`: 基本変換/ゼロ埋め/複数マッチ/拡張子非対象/不正日付/隠しファイル・除外フォルダ/シンボリックリンク/衝突（既存・バッチ内）/不正パターン・グループ数不一致/変更なし除外/出力テンプレート可変/個別ファイルプレビュー/フォルダ・ファイル混在の重複除去を検証する。
-- [ ] `tests/test_renamer.py`: 成功時の履歴生成/直前衝突のSKIP（`monkeypatch`で`FileExistsError`注入）/権限エラー時の継続（`OSError`注入）/無効項目のスキップを検証する。
-- [ ] `tests/test_undo.py`: 逆順復元/ファイル欠損時SKIP/復元先衝突時SKIP/多段スタック/空スタックを検証する。
-- [ ] `tests/test_log.py`: ディレクトリ自動作成/追記/タブ・改行エスケープ/ローテーション（`maxBytes`を極小にして世代ファイル生成・上限確認）を検証する。
-- [ ] `tests/test_pattern_service.py`: JSON読込/保存/初回起動時の既定プリセット生成/不正テンプレート（プレースホルダ欠落・禁止文字）の保存拒否/壊れたJSONからのフォールバック/最後の1件削除拒否/同名上書きを検証する。
+- [x] `tests/conftest.py`: 開発計画書11.2章のダミーフォルダ構造を `tmp_path` 上に生成する fixture、既定 `PatternEntry` を返す fixture を実装する。
+- [x] `tests/test_scanner.py`: 基本変換/ゼロ埋め/複数マッチ/拡張子非対象/不正日付/隠しファイル・除外フォルダ/シンボリックリンク/衝突（既存・バッチ内）/不正パターン・グループ数不一致/変更なし除外/出力テンプレート可変/個別ファイルプレビュー/フォルダ・ファイル混在の重複除去を検証する。
+- [x] `tests/test_renamer.py`: 成功時の履歴生成/直前衝突のSKIP（`monkeypatch`で`FileExistsError`注入）/権限エラー時の継続（`OSError`注入）/無効項目のスキップを検証する。
+- [x] `tests/test_undo.py`: 逆順復元/ファイル欠損時SKIP/復元先衝突時SKIP/多段スタック/空スタックを検証する。
+- [x] `tests/test_log.py`: ディレクトリ自動作成/追記/タブ・改行エスケープ/ローテーション（`maxBytes`を極小にして世代ファイル生成・上限確認）を検証する。
+- [x] `tests/test_pattern_service.py`: JSON読込/保存/初回起動時の既定プリセット生成/不正テンプレート（プレースホルダ欠落・禁止文字）の保存拒否/壊れたJSONからのフォールバック/最後の1件削除拒否/同名上書きを検証する。
 
 ### 9. 動作確認
 
