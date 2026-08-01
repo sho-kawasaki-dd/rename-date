@@ -25,8 +25,8 @@ Phase 1 完成時点では `PatternEntry`（`name` + `pattern` + `output_templat
 
 ### 1. Models 層
 
-- [ ] `models/pattern_entry.py`: `PatternEntry` から `output_template` フィールドを削除し、`to_dict()` / `from_dict()` を `name`/`pattern` のみに更新する。
-- [ ] `models/output_template_entry.py`（新規作成）: `OutputTemplateEntry` dataclass（`name`, `template`）と `to_dict()` / `from_dict(cls, data: dict)` を実装する。
+- [x] `models/pattern_entry.py`: `PatternEntry` から `output_template` フィールドを削除し、`to_dict()` / `from_dict()` を `name`/`pattern` のみに更新する。
+- [x] `models/output_template_entry.py`（新規作成）: `OutputTemplateEntry` dataclass（`name`, `template`）と `to_dict()` / `from_dict(cls, data: dict)` を実装する。
 
 ### 2. `config.py`
 

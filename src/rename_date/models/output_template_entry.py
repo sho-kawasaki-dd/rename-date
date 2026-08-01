@@ -1,22 +1,22 @@
-"""Data model for a saved regular-expression preset."""
+"""Data model for a saved output-template preset."""
 
 from dataclasses import dataclass
 
 
 @dataclass
-class PatternEntry:
+class OutputTemplateEntry:
     name: str
-    pattern: str
+    template: str
 
     def to_dict(self) -> dict[str, str]:
         return {
             "name": self.name,
-            "pattern": self.pattern,
+            "template": self.template,
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "PatternEntry":
+    def from_dict(cls, data: dict) -> "OutputTemplateEntry":
         return cls(
             name=data["name"],
-            pattern=data["pattern"],
+            template=data["template"],
         )
