@@ -150,6 +150,8 @@ class ConfigFrame(ttk.Frame):
 		self.pattern_listbox.delete(0, tk.END)
 		for entry in self._patterns:
 			self.pattern_listbox.insert(tk.END, entry.name)
+		if self._patterns:
+			self.pattern_listbox.selection_set(0)
 
 	def get_selected_patterns(self) -> list[PatternEntry]:
 		"""Return selected patterns in display order."""
