@@ -194,7 +194,8 @@ class AppController:
 			sum(item.status is ItemStatus.INVALID_DATE for item in items),
 			len(items),
 		)
-		self.window.action_frame.set_progress(100)
+		if not was_cancelled:
+			self.window.action_frame.set_progress(100)
 		self.window.action_frame.set_status(
 			"キャンセルされました" if was_cancelled else "プレビューを更新しました"
 		)
