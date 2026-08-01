@@ -59,11 +59,11 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ### 3. `PreviewFrame`
 
-- [ ] `src/rename_date/views/preview_frame.py`: `PreviewFrame(ttk.Frame)` を実装する。
-- [ ] `ttk.Treeview(columns=("status", "original_name", "target_name", "path"), show="headings")` を配置し、見出し（状態/変更前ファイル名/変更後ファイル名/パス）を設定する。
-- [ ] `set_items(items: list[RenameItem], base_dir: Path | None = None) -> None`: 既存行をクリアしてから各 `RenameItem` を挿入する。パス列は `base_dir` 指定時 `original_path.parent.relative_to(base_dir)`、`ValueError` 発生時または未指定時は `str(original_path.parent)` とする。
-- [ ] `tag_configure("invalid", foreground="gray")` / `tag_configure("conflict", background="#fff8b0")` を設定し、`ItemStatus.INVALID_DATE` / `ItemStatus.RESOLVED_CONFLICT` の行にそれぞれタグを付与する。
-- [ ] `items` が空の場合の表示（プレースホルダ行またはラベルで「対象がありません」）を実装する。
+- [x] `src/rename_date/views/preview_frame.py`: `PreviewFrame(ttk.Frame)` を実装する。
+- [x] `ttk.Treeview(columns=("status", "original_name", "target_name", "path"), show="headings")` を配置し、見出し（状態/変更前ファイル名/変更後ファイル名/パス）を設定する。
+- [x] `set_items(items: list[RenameItem], base_dir: Path | None = None) -> None`: 既存行をクリアしてから各 `RenameItem` を挿入する。パス列は `base_dir` 指定時 `original_path.parent.relative_to(base_dir)`、`ValueError` 発生時または未指定時は `str(original_path.parent)` とする。
+- [x] `tag_configure("invalid", foreground="gray")` / `tag_configure("conflict", background="#fff8b0")` を設定し、`ItemStatus.INVALID_DATE` / `ItemStatus.RESOLVED_CONFLICT` の行にそれぞれタグを付与する。
+- [x] `items` が空の場合の表示（プレースホルダ行またはラベルで「対象がありません」）を実装する。
 
 ### 4. `ActionFrame`
 
