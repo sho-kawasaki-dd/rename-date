@@ -83,8 +83,8 @@ Models / Services 層（Phase 1 で完成済み）に依存せず、`ConfigFrame
 
 ### 6. 手動デモスクリプト
 
-- [ ] `scripts/`（新規ディレクトリ、配布対象外）を作成する。
-- [ ] `scripts/demo_views.py`（新規作成）: 先頭コメントで「開発用の手動確認スクリプトであり配布物には含めない」旨を明記する。`MainWindow` を生成し、ダミーの `PatternEntry` リスト（複数件）とダミーの `OutputTemplateEntry` リスト（複数件）、ダミーの `RenameItem` リスト（`PENDING` / `INVALID_DATE` / `RESOLVED_CONFLICT` を含む）、ダミーの件数を各 Frame の `set_patterns` / `set_templates` / `set_items` / `set_counts` に渡し、コールバックには `print()` するのみのダミー関数を注入して `mainloop()` を起動する。
+- [x] `scripts/`（新規ディレクトリ、配布対象外）を作成する。
+- [x] `scripts/demo_views.py`（新規作成）: 先頭コメントで「開発用の手動確認スクリプトであり配布物には含めない」旨を明記する。`MainWindow` を生成し、ダミーの `PatternEntry` リスト（複数件）とダミーの `OutputTemplateEntry` リスト（複数件）、ダミーの `RenameItem` リスト（`PENDING` / `INVALID_DATE` / `RESOLVED_CONFLICT` を含む）、ダミーの件数を各 Frame の `set_patterns` / `set_templates` / `set_items` / `set_counts` に渡し、コールバックには `print()` するのみのダミー関数を注入して `mainloop()` を起動する。
 
 ### 7. 動作確認
 
