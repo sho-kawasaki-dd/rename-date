@@ -72,11 +72,11 @@ Models 層・Services 層の実ロジックを実装し、GUI（Views/Controller
 
 ### 7. `LogService`
 
-- [ ] `services/log_service.py`: `LogService(base_dir: Path | None = None)` を実装する。
-- [ ] `RotatingFileHandler`（`maxBytes=config.LOG_MAX_BYTES`, `backupCount=config.LOG_BACKUP_COUNT`, `encoding="utf-8"`, `delay=True`）をロガー `rename_date.audit`（`propagate=False`）に設定し、多重初期化時のハンドラ重複を防ぐ。
-- [ ] `handler.namer` をカスタマイズし世代ファイル名を `rename_log.N.txt` にする。
-- [ ] `log_rename(items, session_id)` / `log_undo(items, session_id)`: ISO8601日時・`session_id`・action・status・変更前後パス・メッセージをタブ区切りで1行出力する。タブ・改行はエスケープする。
-- [ ] `close()`: ハンドラを解放する。
+- [x] `services/log_service.py`: `LogService(base_dir: Path | None = None)` を実装する。
+- [x] `RotatingFileHandler`（`maxBytes=config.LOG_MAX_BYTES`, `backupCount=config.LOG_BACKUP_COUNT`, `encoding="utf-8"`, `delay=True`）をロガー `rename_date.audit`（`propagate=False`）に設定し、多重初期化時のハンドラ重複を防ぐ。
+- [x] `handler.namer` をカスタマイズし世代ファイル名を `rename_log.N.txt` にする。
+- [x] `log_rename(items, session_id)` / `log_undo(items, session_id)`: ISO8601日時・`session_id`・action・status・変更前後パス・メッセージをタブ区切りで1行出力する。タブ・改行はエスケープする。
+- [x] `close()`: ハンドラを解放する。
 
 ### 8. テスト実装
 
