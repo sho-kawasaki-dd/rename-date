@@ -9,13 +9,18 @@ src_root = project_root / "src"
 tkdnd_root = os.path.join(os.path.dirname(tkinterdnd2.__file__), "tkdnd")
 icon_path = project_root / "installer" / "assets" / "app.ico"
 icon = str(icon_path) if os.path.exists(icon_path) else None
+tk_runtime_marker = project_root / "installer" / "assets" / "tk-runtime.txt"
 
 
 a = Analysis(
 	[str(project_root / "main.py")],
 	pathex=[str(src_root)],
 	binaries=[],
-	datas=[(tkdnd_root, "tkinterdnd2/tkdnd")],
+	datas=[
+		(tkdnd_root, "tkinterdnd2/tkdnd"),
+		(str(tk_runtime_marker), "_tcl_data"),
+		(str(tk_runtime_marker), "_tk_data"),
+	],
 	hiddenimports=[],
 	hookspath=[],
 	hooksconfig={},

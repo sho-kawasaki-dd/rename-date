@@ -70,8 +70,8 @@
 
 - [x] `uv version 0.3.0` で [pyproject.toml](../pyproject.toml) と [uv.lock](../uv.lock) のプロジェクトバージョンを `0.2.1` から `0.3.0` に更新する。`uv lock --check` で同期を確認し、`uv run --locked python -c "from importlib.metadata import version; assert version('rename-date') == '0.3.0'"` でインストールされるパッケージのバージョンを確認する。
 - [x] [setup.iss](../installer/setup.iss) の `iscc` 単独実行時の既定バージョンも `0.3.0` に揃える。[ビルドスクリプト](../scripts/build-release.ps1) が `pyproject.toml` からバージョンを渡す仕組みと、既存のインストーラーの `AppId` は維持する。
-- [ ] テスト用のWindows環境で `uv run main.py` を起動する。`700x450` でもメニューとプレビューを操作でき、3種類の保存・取込操作、上書き確認の取消、パターン複数選択状態および未選択状態での取込後の選択維持、取込後の再プレビューおよび取込直後のUndo表示、再起動後の設定保持を確認する。
-- [ ] `iscc.exe` が使えるWindowsの検証用作業コピーで `pwsh -File .\scripts\build-release.ps1`（PowerShell 7 が無い環境では `powershell -File .\scripts\build-release.ps1`）を実行し、`installer\Output\rename-date-0.3.0-setup.exe` が生成されることを確認する（ビルドスクリプトは既存のビルド出力を消去する）。検証用プロファイルで `v0.2.1` から上書きインストールし、インストール済みアプリのバージョンが `0.3.0` であること、既存の3種類のプリセットが残ること、新機能で保存・取込できることを確認する。
+- [x] テスト用のWindows環境で `uv run main.py` を起動する。`700x450` でもメニューとプレビューを操作でき、3種類の保存・取込操作、上書き確認の取消、パターン複数選択状態および未選択状態での取込後の選択維持、取込後の再プレビューおよび取込直後のUndo表示、再起動後の設定保持を確認する。
+- [x] `iscc.exe` が使えるWindowsの検証用作業コピーで `pwsh -File .\scripts\build-release.ps1`（PowerShell 7 が無い環境では `powershell -File .\scripts\build-release.ps1`）を実行し、`installer\Output\rename-date-0.3.0-setup.exe` が生成されることを確認する（ビルドスクリプトは既存のビルド出力を消去する）。検証用プロファイルで `v0.2.1` から上書きインストールし、インストール済みアプリのバージョンが `0.3.0` であること、既存の3種類のプリセットが残ること、新機能で保存・取込できることを確認する。
 
 ## スコープ外
 
