@@ -13,6 +13,7 @@ from rename_date.services.preset_io import (
     write_json_atomic,
 )
 from rename_date.services.validation import (
+    validate_month_output_template,
     validate_output_template,
     validate_range_output_template,
 )
@@ -166,3 +167,21 @@ class RangeOutputTemplateService(OutputTemplateService):
     @classmethod
     def _validate_template(cls, template: str) -> None:
         validate_range_output_template(template)
+
+
+class MonthOutputTemplateService(OutputTemplateService):
+    """Manage the user's saved year-month output-template presets."""
+
+    _file_name = config.MONTH_OUTPUT_TEMPLATES_FILE_NAME
+    _temp_prefix = ".month-output-templates-"
+
+    @classmethod
+    def _default_entry(cls) -> OutputTemplateEntry:
+        return OutputTemplateEntry(
+            name=config.DEFAULT_MONTH_TEMPLATE_NAME,
+            template=config.DEFAULT_MONTH_OUTPUT_TEMPLATE,
+        )
+
+    @classmethod
+    def _validate_template(cls, template: str) -> None:
+        validate_month_output_template(template)

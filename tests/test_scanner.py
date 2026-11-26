@@ -64,9 +64,16 @@ def test_rejects_invalid_pattern_and_template(tmp_path, default_pattern):
     with pytest.raises(InvalidPatternError):
         service.scan([source], ["(2024)"], "{Y}{M}{D}")
     with pytest.raises(InvalidPatternError):
-        service.scan([source], ["(2024)(01)"], "{Y}{M}{D}")
+        service.scan([source], ["(2024)(01)(01)(01)(01)(01)(01)"], "{Y}{M}{D}")
     with pytest.raises(InvalidTemplateError):
         service.scan([source], [default_pattern.pattern], "{Y}{M}")
+    with pytest.raises(InvalidTemplateError):
+        service.scan(
+            [source],
+            [default_pattern.pattern],
+            "{Y}{M}{D}",
+            month_output_template="{Y}",
+        )
     with pytest.raises(InvalidPatternError):
         service.scan([source], [], "{Y}{M}{D}")
 
@@ -200,6 +207,140 @@ def test_reports_progress_for_every_collected_file(sample_tree, default_pattern)
 
 RANGE_PATTERN = r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(?:(?:(\d{4})\.)?(\d{1,2})\.)?(\d{1,2})\)"
 RANGE_TEMPLATE = "{Y}{M}{D}-{Y2}{M2}{D2}"
+MONTH_PATTERN = (
+    r"(?<![0-9])"
+    r"(?<!(?<![0-9])[0-9]{4}\.[0-9][-〜～])"
+    r"(?<!(?<![0-9])[0-9]{4}\.[0-9]{2}[-〜～])"
+    r"([0-9]{4})\.([0-9]{1,2})"
+    r"(?![0-9]|[.-][0-9]|[〜～][0-9]{4}\.[0-9]{1,2}(?![0-9]))"
+)
+
+
+def test_scans_year_month_and_preserves_extension(tmp_path):
+    source = tmp_path / "売上_2026.7.pdf"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [MONTH_PATTERN],
+        "{Y}{M}{D}",
+        month_output_template="{Y}-{M}",
+    )
+
+    assert items[0].target_name == "売上_2026-07.pdf"
+
+
+def test_marks_invalid_year_month_as_invalid_date(tmp_path):
+    source = tmp_path / "2026.13.pdf"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [MONTH_PATTERN],
+        "{Y}{M}{D}",
+    )
+
+    assert len(items) == 1
+    assert items[0].status == ItemStatus.INVALID_DATE
+    assert items[0].target_path == source.resolve()
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "2026.11.26.pdf",
+        "2026.11-26.pdf",
+        "2026.07-2026.08.pdf",
+        "2026.7〜2026.08.pdf",
+        "2026.07～2026.8.pdf",
+        "2026.11",
+        "2026.11.26",
+        "売上_2026.7.1",
+    ],
+)
+def test_standard_month_pattern_skips_non_standalone_year_months(
+    tmp_path,
+    filename,
+):
+    source = tmp_path / filename
+    source.write_text("sample", encoding="utf-8")
+
+    assert ScannerService().scan([source], [MONTH_PATTERN], "{Y}{M}{D}") == []
+
+
+def test_standard_month_pattern_converts_independent_month_after_range(tmp_path):
+    source = tmp_path / "2026.7-2026.08_売上_2027.3.pdf"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [MONTH_PATTERN],
+        "{Y}{M}{D}",
+        month_output_template="{Y}-{M}",
+    )
+
+    assert items[0].target_name == "2026.7-2026.08_売上_2027-03.pdf"
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("売上_2026.7.001", "売上_2026-07.001"),
+        ("売上_2026.7.２６", "売上_2026-07.２６"),
+    ],
+)
+def test_month_suffix_filter_only_skips_one_or_two_ascii_digits(
+    tmp_path,
+    filename,
+    expected,
+):
+    source = tmp_path / filename
+    source.write_text("sample", encoding="utf-8")
+    generic_month_pattern = r"([0-9]{4})\.([0-9]{1,2})"
+
+    items = ScannerService().scan(
+        [source],
+        [generic_month_pattern],
+        "{Y}{M}{D}",
+        month_output_template="{Y}-{M}",
+    )
+
+    assert items[0].target_name == expected
+
+
+def test_month_suffix_filter_does_not_affect_single_date_patterns(tmp_path):
+    source = tmp_path / "(2024.1.5).01"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+            MONTH_PATTERN,
+        ],
+        "{Y}{M}{D}",
+    )
+
+    assert items[0].target_name == "20240105.01"
+
+
+def test_patterns_apply_in_range_single_month_priority_order(tmp_path):
+    source = tmp_path / "(2024.1.5-6).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"(\d{4})\.([0-9]{2})",
+            r"(?<!\()(\d{4})\.([0-9]{2})\.([0-9]{2})",
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{1,2})\)",
+        ],
+        "{Y}.{M}-{D}",
+        range_output_template="{Y}.{M}.{D}{Y2}{M2}{D2}",
+        month_output_template="{Y}-{M}",
+    )
+
+    assert items[0].target_name == "2024-01-050106.txt"
 
 
 @pytest.mark.parametrize(

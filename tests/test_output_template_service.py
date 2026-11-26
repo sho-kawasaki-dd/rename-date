@@ -8,6 +8,7 @@ from rename_date import config
 from rename_date.models.output_template_entry import OutputTemplateEntry
 from rename_date.services.preset_io import PresetIOError, PresetIOReason
 from rename_date.services.output_template_service import (
+	MonthOutputTemplateService,
 	OutputTemplateService,
 	RangeOutputTemplateService,
 )
@@ -170,6 +171,49 @@ def test_range_template_uses_separate_file(tmp_path):
 
 	assert (tmp_path / "output_templates.json").exists()
 	assert (tmp_path / "range_output_templates.json").exists()
+
+
+def test_month_initial_load_creates_separate_default_preset(tmp_path):
+	service = MonthOutputTemplateService(tmp_path)
+
+	assert service.load() == [
+		OutputTemplateEntry(
+			config.DEFAULT_MONTH_TEMPLATE_NAME,
+			config.DEFAULT_MONTH_OUTPUT_TEMPLATE,
+		)
+	]
+	assert (tmp_path / "month_output_templates.json").exists()
+
+
+@pytest.mark.parametrize(
+	"template",
+	[
+		"{Y}",
+		"{M}",
+		"{Y}-{M}-{D}",
+		"{Y}-{M}-{Y2}",
+		"{Y}-{M}-{foo}",
+		"{Y}\t{M}",
+		"{Y}\x00{M}",
+	],
+)
+def test_month_save_rejects_invalid_templates(tmp_path, template):
+	service = MonthOutputTemplateService(tmp_path)
+
+	with pytest.raises(InvalidTemplateError):
+		service.save([OutputTemplateEntry("invalid", template)])
+
+
+def test_month_save_and_load_json(tmp_path):
+	service = MonthOutputTemplateService(tmp_path)
+	entry = OutputTemplateEntry("month", "{Y}_{Y}-{M}")
+
+	service.save([entry])
+
+	assert service.load() == [entry]
+	assert json.loads(
+		(tmp_path / "month_output_templates.json").read_text(encoding="utf-8")
+	) == [entry.to_dict()]
 
 
 @pytest.mark.parametrize(

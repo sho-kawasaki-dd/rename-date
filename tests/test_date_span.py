@@ -4,7 +4,14 @@ from datetime import date
 
 import pytest
 
-from rename_date.services.date_span import DateSpan, parse_match, render
+from rename_date.services.date_span import (
+    DateSpan,
+    YearMonth,
+    parse_match,
+    parse_month_match,
+    render,
+    render_month,
+)
 from rename_date.services.validation import compile_pattern, pattern_kind
 
 
@@ -182,3 +189,61 @@ def test_rejects_non_integer_required_group():
 )
 def test_render(span, template, expected):
     assert render(span, template) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("2026.7", YearMonth(2026, 7)),
+        ("0001.1", YearMonth(1, 1)),
+        ("9999.12", YearMonth(9999, 12)),
+    ],
+)
+def test_parse_month_match(text, expected):
+    compiled = compile_pattern(r"(\d+)\.(\d+)")
+    match = compiled.search(text)
+    assert match is not None
+
+    assert parse_month_match(match) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["0.1", "10000.1", "2026.0", "2026.13", "2026.", ".7", "year.month"],
+)
+def test_parse_month_match_rejects_invalid_values(text):
+    compiled = compile_pattern(r"(\d*)\.(\d*)")
+    match = compiled.search(text)
+    assert match is not None
+
+    with pytest.raises(ValueError):
+        parse_month_match(match)
+
+
+def test_parse_month_match_rejects_missing_group():
+    compiled = compile_pattern(r"(\d{4})\.(\d{1,2})?")
+    match = compiled.search("2026.")
+    assert match is not None
+
+    with pytest.raises(ValueError, match="missing"):
+        parse_month_match(match)
+
+
+def test_parse_match_rejects_month_kind():
+    compiled = compile_pattern(r"(\d{4})\.(\d{1,2})")
+    match = compiled.search("2026.7")
+    assert match is not None
+
+    with pytest.raises(ValueError, match="month patterns"):
+        parse_match(match, pattern_kind(compiled))
+
+
+@pytest.mark.parametrize(
+    ("year_month", "template", "expected"),
+    [
+        (YearMonth(2026, 7), "{Y}-{M}", "2026-07"),
+        (YearMonth(42, 3), "{Y}_{Y}-{M}", "0042_0042-03"),
+    ],
+)
+def test_render_month(year_month, template, expected):
+    assert render_month(year_month, template) == expected

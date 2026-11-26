@@ -12,8 +12,10 @@ from rename_date.models.rename_item import ItemStatus, RenameItem
 from rename_date.services import date_span
 from rename_date.services.validation import (
 	InvalidPatternError,
+	PatternKind,
 	compile_pattern,
 	pattern_kind,
+	validate_month_output_template,
 	validate_output_template,
 	validate_range_output_template,
 )
@@ -30,16 +32,24 @@ class ScannerService:
 		cancel_event: Event | None = None,
 		progress_callback: Callable[[int, int], None] | None = None,
 		range_output_template: str = config.DEFAULT_RANGE_OUTPUT_TEMPLATE,
+		*,
+		month_output_template: str = config.DEFAULT_MONTH_OUTPUT_TEMPLATE,
 	) -> list[RenameItem]:
 		"""Scan targets and calculate collision-free rename destinations."""
 		if not patterns:
 			raise InvalidPatternError("at least one pattern is required")
 		validate_range_output_template(range_output_template)
 		validate_output_template(output_template)
+		validate_month_output_template(month_output_template)
 		compiled_patterns = [compile_pattern(pattern) for pattern in patterns]
+		kind_order = {
+			PatternKind.RANGE: 0,
+			PatternKind.SINGLE: 1,
+			PatternKind.MONTH: 2,
+		}
 		ordered_patterns = sorted(
 			compiled_patterns,
-			key=lambda compiled: pattern_kind(compiled).value == "single",
+			key=lambda compiled: kind_order[pattern_kind(compiled)],
 		)
 		files = self._collect_files(targets, cancel_event)
 		reservations: dict[Path, set[str]] = {}
@@ -55,24 +65,39 @@ class ScannerService:
 				matched_any = False
 				invalid_date = False
 				for compiled in ordered_patterns:
+					kind = pattern_kind(compiled)
+					if (
+						kind is PatternKind.MONTH
+						and re.fullmatch(r"\.[0-9]{1,2}", source.suffix)
+					):
+						continue
 					matches = list(compiled.finditer(working_stem))
 					if not matches:
 						continue
 					matched_any = True
-					kind = pattern_kind(compiled)
 
 					try:
 						for match in matches:
-							date_span.parse_match(match, kind)
+							if kind is PatternKind.MONTH:
+								date_span.parse_month_match(match)
+							else:
+								date_span.parse_match(match, kind)
 					except ValueError:
 						invalid_date = True
 						break
 
 					def replace_match(match: re.Match[str]) -> str:
+						if kind is PatternKind.MONTH:
+							year_month = date_span.parse_month_match(match)
+							return date_span.render_month(
+								year_month,
+								month_output_template,
+							)
+
 						span = date_span.parse_match(match, kind)
 						template = (
 							range_output_template
-							if kind.value == "range"
+							if kind is PatternKind.RANGE
 							else output_template
 						)
 						return date_span.render(span, template)

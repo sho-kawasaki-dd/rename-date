@@ -15,33 +15,41 @@ class InvalidTemplateError(ValueError):
 class PatternKind(Enum):
     """Kind of date pattern based on its capture-group count."""
 
+    MONTH = "month"
     SINGLE = "single"
     RANGE = "range"
 
 
+_PATTERN_KIND_BY_GROUP_COUNT = {
+    2: PatternKind.MONTH,
+    3: PatternKind.SINGLE,
+    4: PatternKind.RANGE,
+    5: PatternKind.RANGE,
+    6: PatternKind.RANGE,
+}
+_PATTERN_GROUP_ERROR = (
+    "pattern must contain 2 (month), 3 (single), or 4 to 6 (range) capture groups"
+)
+
+
 def compile_pattern(pattern: str) -> re.Pattern[str]:
-    """Compile a pattern with 3 to 6 capture groups."""
+    """Compile a pattern with 2 to 6 capture groups."""
     try:
         compiled = re.compile(pattern)
     except (re.error, TypeError) as error:
         raise InvalidPatternError("pattern must be a valid regular expression") from error
 
-    if compiled.groups not in range(3, 7):
-        raise InvalidPatternError(
-            "pattern must contain 3 (single) or 4 to 6 (range) capture groups"
-        )
+    if compiled.groups not in _PATTERN_KIND_BY_GROUP_COUNT:
+        raise InvalidPatternError(_PATTERN_GROUP_ERROR)
     return compiled
 
 
 def pattern_kind(compiled: re.Pattern[str]) -> PatternKind:
-    """Return whether a compiled pattern is for a single date or a date range."""
-    if compiled.groups == 3:
-        return PatternKind.SINGLE
-    if compiled.groups in range(4, 7):
-        return PatternKind.RANGE
-    raise InvalidPatternError(
-        "pattern must contain 3 (single) or 4 to 6 (range) capture groups"
-    )
+    """Return the date kind associated with a compiled pattern."""
+    try:
+        return _PATTERN_KIND_BY_GROUP_COUNT[compiled.groups]
+    except KeyError as error:
+        raise InvalidPatternError(_PATTERN_GROUP_ERROR) from error
 
 
 def validate_output_template(template: str) -> None:
@@ -75,3 +83,22 @@ def validate_range_output_template(template: str) -> None:
 
     if any(character in template for character in '\\/:*?"<>|'):
         raise InvalidTemplateError("template contains a Windows file-name character")
+
+
+def validate_month_output_template(template: str) -> None:
+    """Validate a year-month template and Windows file-name restrictions."""
+    if not isinstance(template, str):
+        raise InvalidTemplateError("template must be a string")
+
+    for placeholder in ("{Y}", "{M}"):
+        if placeholder not in template:
+            raise InvalidTemplateError(f"template must contain {placeholder}")
+
+    remaining = re.sub(r"\{(?:Y|M)\}", "", template)
+    if "{" in remaining or "}" in remaining:
+        raise InvalidTemplateError("template contains an unsupported placeholder")
+
+    if any(character in template for character in '\\/:*?"<>|'):
+        raise InvalidTemplateError("template contains a Windows file-name character")
+    if any(ord(character) <= 0x1F for character in template):
+        raise InvalidTemplateError("template contains a control character")

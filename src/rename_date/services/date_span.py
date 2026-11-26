@@ -1,4 +1,4 @@
-"""Parse and render single dates and date ranges."""
+"""Parse and render single dates, date ranges, and year-month values."""
 
 from dataclasses import dataclass
 from datetime import date
@@ -14,6 +14,12 @@ class DateSpan:
     end_has_year: bool
 
 
+@dataclass(frozen=True)
+class YearMonth:
+    year: int
+    month: int
+
+
 def _to_int(value: str | None) -> int:
     if value is None:
         raise ValueError("required date group is missing")
@@ -27,11 +33,17 @@ def parse_match(match: re.Match[str], kind: PatternKind) -> DateSpan:
     """Parse a regex match into a valid single date or date range."""
     groups = match.groups()
 
+    if kind is PatternKind.MONTH:
+        raise ValueError("month patterns cannot be parsed as a date span")
+
     if kind is PatternKind.SINGLE:
         if len(groups) != 3:
             raise ValueError("single-date patterns must contain 3 groups")
         start = date(_to_int(groups[0]), _to_int(groups[1]), _to_int(groups[2]))
         return DateSpan(start=start, end=None, end_has_year=False)
+
+    if kind is not PatternKind.RANGE:
+        raise ValueError("unsupported pattern kind")
 
     if len(groups) not in (4, 5, 6):
         raise ValueError("range-date patterns must contain 4 to 6 groups")
@@ -104,6 +116,26 @@ def parse_match(match: re.Match[str], kind: PatternKind) -> DateSpan:
                 end = date(end_year, month2, day2)
 
     return DateSpan(start=start, end=end, end_has_year=end_has_year)
+
+
+def parse_month_match(match: re.Match[str]) -> YearMonth:
+    """Parse a regex match into a valid year-month value."""
+    groups = match.groups()
+    if len(groups) != 2:
+        raise ValueError("month patterns must contain 2 groups")
+
+    year = _to_int(groups[0])
+    month = _to_int(groups[1])
+    date(year, month, 1)
+    return YearMonth(year=year, month=month)
+
+
+def render_month(year_month: YearMonth, template: str) -> str:
+    """Render a year-month value using the supplied output template."""
+    return (
+        template.replace("{Y}", f"{year_month.year:04d}")
+        .replace("{M}", f"{year_month.month:02d}")
+    )
 
 
 def render(span: DateSpan, template: str) -> str:

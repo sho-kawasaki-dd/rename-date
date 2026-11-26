@@ -8,27 +8,41 @@ from rename_date.services.validation import (
     PatternKind,
     compile_pattern,
     pattern_kind,
+    validate_month_output_template,
     validate_output_template,
     validate_range_output_template,
 )
 
 
-@pytest.mark.parametrize("pattern", [r"(a)(b)(c)", r"(a)(b)(c)(d)", r"(a)(b)(c)(d)(e)", r"(a)(b)(c)(d)(e)(f)"])
-def test_compile_pattern_accepts_three_through_six_groups(pattern):
+@pytest.mark.parametrize(
+	"pattern",
+	[
+		r"(a)(b)",
+		r"(a)(b)(c)",
+		r"(a)(b)(c)(d)",
+		r"(a)(b)(c)(d)(e)",
+		r"(a)(b)(c)(d)(e)(f)",
+	],
+)
+def test_compile_pattern_accepts_two_through_six_groups(pattern):
     compiled = compile_pattern(pattern)
 
-    assert compiled.groups >= 3
+    assert compiled.groups >= 2
 
 
-@pytest.mark.parametrize("pattern", [r"(a)", r"(a)(b)", r"(a)(b)(c)(d)(e)(f)(g)"])
+@pytest.mark.parametrize("pattern", [r"", r"(a)", r"(a)(b)(c)(d)(e)(f)(g)"])
 def test_compile_pattern_rejects_other_group_counts(pattern):
     with pytest.raises(InvalidPatternError) as error:
         compile_pattern(pattern)
 
-    assert "3 (single) or 4 to 6 (range) capture groups" in str(error.value)
+    assert (
+        "2 (month), 3 (single), or 4 to 6 (range) capture groups"
+        in str(error.value)
+    )
 
 
 def test_pattern_kind_distinguishes_single_and_range():
+    assert pattern_kind(compile_pattern(r"(a)(b)")) is PatternKind.MONTH
     assert pattern_kind(compile_pattern(r"(a)(b)(c)")) is PatternKind.SINGLE
 
     for pattern in (
@@ -60,3 +74,36 @@ def test_range_output_template_requires_every_placeholder(placeholder):
 
 def test_range_output_template_accepts_all_placeholders():
     validate_range_output_template("{Y}{M}{D}-{Y2}{M2}{D2}")
+
+
+@pytest.mark.parametrize("placeholder", ["{Y}", "{M}"])
+def test_month_output_template_requires_year_and_month(placeholder):
+    template = "{Y}-{M}".replace(placeholder, "")
+
+    with pytest.raises(InvalidTemplateError):
+        validate_month_output_template(template)
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "{Y}-{M}-{D}",
+        "{Y}-{M}-{Y2}",
+        "{Y}-{M}-{foo}",
+        "{Y}-{M}-{}",
+        "{Y}-{M}{",
+        "{{Y}}-{M}",
+        "{Y}-{M}-{Y{M}}",
+        "{Y}\x00{M}",
+        "{Y}\t{M}",
+        "{Y}\x1f{M}",
+        "{Y}:{M}",
+    ],
+)
+def test_month_output_template_rejects_unsupported_content(template):
+    with pytest.raises(InvalidTemplateError):
+        validate_month_output_template(template)
+
+
+def test_month_output_template_accepts_repeated_placeholders():
+    validate_month_output_template("{Y}_{Y}-{M}")
