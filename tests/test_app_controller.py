@@ -9,6 +9,7 @@ from rename_date.models.execution_history import ExecutionHistory
 from rename_date.models.output_template_entry import OutputTemplateEntry
 from rename_date.models.pattern_entry import PatternEntry
 from rename_date.models.rename_item import ItemStatus, RenameItem
+from rename_date.views.config_frame import resolve_selected_indices
 from rename_date.services.validation import InvalidPatternError, InvalidTemplateError
 
 
@@ -23,18 +24,25 @@ class FakeConfigFrame:
 		self.templates = []
 		self.range_templates = []
 
-	def set_patterns(self, entries):
+	def set_patterns(self, entries, *, preserve_selection=False):
 		self.patterns = list(entries)
 
-	def set_templates(self, entries):
+	def set_templates(self, entries, *, preserve_selection=False):
 		self.templates = list(entries)
 		if self.selected_template is None and self.templates:
 			self.selected_template = self.templates[0]
 
-	def set_range_templates(self, entries):
+	def set_range_templates(self, entries, *, preserve_selection=False):
 		self.range_templates = list(entries)
 		if self.selected_range_template is None and self.range_templates:
 			self.selected_range_template = self.range_templates[0]
+
+	def get_preset_count(self, kind):
+		return {
+			"pattern": len(self.patterns),
+			"single_template": len(self.templates),
+			"range_template": len(self.range_templates),
+		}[kind]
 
 	def set_callbacks(self, **callbacks):
 		self.callbacks.update(callbacks)
@@ -60,6 +68,10 @@ class FakePreviewFrame:
 	def set_items(self, items, base_dir=None):
 		self.items = list(items)
 		self.base_dir = base_dir
+
+	def clear(self):
+		self.items = []
+		self.base_dir = None
 
 
 class FakeActionFrame:
@@ -114,6 +126,11 @@ class FakeWindow:
 		self.log_frame = FakeLogFrame()
 		self.protocols = {}
 		self.destroyed = False
+		self.preset_callbacks = {}
+		self.export_path = None
+		self.import_path = None
+		self.export_path_requests = []
+		self.import_path_requests = []
 
 	def after(self, delay, callback, *args):
 		callback(*args)
@@ -123,6 +140,17 @@ class FakeWindow:
 
 	def destroy(self):
 		self.destroyed = True
+
+	def set_preset_callbacks(self, **callbacks):
+		self.preset_callbacks.update(callbacks)
+
+	def choose_preset_export_path(self, kind):
+		self.export_path_requests.append(kind)
+		return self.export_path
+
+	def choose_preset_import_path(self, kind):
+		self.import_path_requests.append(kind)
+		return self.import_path
 
 
 class ImmediateThread:
@@ -142,8 +170,22 @@ class FakePatternService:
 	def __init__(self, entries):
 		self.entries = list(entries)
 		self.error = None
+		self.base_dir = Path(".")
+		self.export_calls = []
+		self.import_entries = []
 
 	def load(self):
+		return list(self.entries)
+
+	def export_to_json(self, path):
+		if self.error:
+			raise self.error
+		self.export_calls.append(path)
+
+	def import_from_json(self, path):
+		if self.error:
+			raise self.error
+		self.entries.extend(self.import_entries)
 		return list(self.entries)
 
 	def upsert(self, entry):
@@ -287,6 +329,9 @@ def make_controller(monkeypatch, tmp_path):
 	patterns = FakePatternService([pattern])
 	templates = FakeTemplateService([template])
 	range_templates = FakeRangeTemplateService([range_template])
+	patterns.base_dir = tmp_path / "config"
+	templates.base_dir = tmp_path / "config"
+	range_templates.base_dir = tmp_path / "config"
 	controller = AppController(
 		window,
 		scanner,
@@ -482,3 +527,154 @@ def test_close_destroys_immediately_when_idle(monkeypatch, tmp_path):
 	controller._on_close()
 
 	assert window.destroyed is True
+
+
+def test_import_updates_presets_and_invalidates_preview(monkeypatch, tmp_path):
+	controller, window, scanner, _, undo, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	controller._on_preview_request()
+	old_items = list(controller._last_items)
+	added = PatternEntry("imported", r"(\d{4})-(\d{2})-(\d{2})")
+	patterns.import_entries = [added]
+	window.import_path = tmp_path / "patterns.json"
+	notices = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: notices.append(args),
+	)
+	undo.histories = [ExecutionHistory(items=old_items)]
+
+	controller._on_preset_import("pattern")
+
+	assert patterns.entries[-1] == added
+	assert window.config_frame.patterns[-1] == added
+	assert window.preview_frame.items == []
+	assert window.action_frame.counts == (0, 0, 0)
+	assert "再プレビュー" in window.action_frame.status
+	assert controller._last_items == []
+	assert controller._last_base_dir is None
+	assert controller._last_scan_params is None
+	assert undo.has_history()
+	assert "1件取り込みました" in notices[0][1]
+
+
+def test_import_is_blocked_before_open_dialog_while_processing(monkeypatch, tmp_path):
+	controller, window, *_ = make_controller(monkeypatch, tmp_path)
+	warnings = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showwarning",
+		lambda *args, **kwargs: warnings.append(args),
+	)
+	controller._busy = True
+
+	controller._on_preset_import("pattern")
+
+	assert window.import_path_requests == []
+	assert len(warnings) == 1
+
+
+def test_cancelled_import_does_not_change_preview(monkeypatch, tmp_path):
+	controller, window, scanner, *_ = make_controller(monkeypatch, tmp_path)
+	controller._on_preview_request()
+	preview_items = list(window.preview_frame.items)
+	scan_params = controller._last_scan_params
+	window.import_path = None
+
+	controller._on_preset_import("pattern")
+
+	assert window.import_path_requests == ["pattern"]
+	assert scanner.calls
+	assert window.preview_frame.items == preview_items
+	assert controller._last_scan_params == scan_params
+
+
+def test_export_prompts_before_overwriting_existing_external_file(
+	monkeypatch,
+	tmp_path,
+):
+	controller, window, _, _, _, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	target = tmp_path / "presets.json"
+	target.write_text("keep", encoding="utf-8")
+	window.export_path = target
+	questions = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"askyesno",
+		lambda *args, **kwargs: questions.append(args) or False,
+	)
+
+	controller._on_preset_export("pattern")
+
+	assert len(questions) == 1
+	assert patterns.export_calls == []
+	assert target.read_text(encoding="utf-8") == "keep"
+
+
+def test_export_rejects_internal_config_path_before_overwrite_prompt(
+	monkeypatch,
+	tmp_path,
+):
+	controller, window, _, _, _, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	target = patterns.base_dir / "patterns.json"
+	window.export_path = target
+	errors = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"askyesno",
+		lambda *args, **kwargs: pytest.fail("overwrite prompt shown for internal path"),
+	)
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showerror",
+		lambda *args, **kwargs: errors.append(args),
+	)
+
+	controller._on_preset_export("pattern")
+
+	assert patterns.export_calls == []
+	assert len(errors) == 1
+	assert "内部設定ファイル" in errors[0][1]
+
+
+@pytest.mark.parametrize(
+	"status",
+	[
+		"Undoが完了しました",
+		"Undoがキャンセルされました",
+	],
+)
+def test_undo_without_rescan_conditions_finishes_cleanly(
+	monkeypatch,
+	tmp_path,
+	status,
+):
+	controller, window, *_ = make_controller(monkeypatch, tmp_path)
+	controller._busy = True
+	controller._last_scan_params = None
+	controller._last_items = []
+	window.action_frame.set_processing(True)
+
+	controller._on_undo_complete([], was_cancelled=status.endswith("キャンセルされました"))
+
+	assert controller._busy is False
+	assert controller._cancel_event is None
+	assert window.action_frame.processing is False
+	assert window.action_frame.progress == 100
+	assert window.action_frame.status == status
+
+
+def test_resolve_selected_indices_preserves_multiple_and_empty_selection():
+	names = ["first", "second", "third"]
+
+	assert resolve_selected_indices(["third", "first"], names) == [0, 2]
+	assert resolve_selected_indices([], names) == []

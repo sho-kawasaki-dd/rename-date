@@ -20,7 +20,13 @@ from rename_date.services.pattern_service import PatternService
 from rename_date.services.rename_service import RenameService
 from rename_date.services.scanner_service import ScannerService
 from rename_date.services.undo_service import UndoService
+from rename_date.services.preset_io import (
+	PresetIOError,
+	PresetIOReason,
+	ensure_external_preset_path,
+)
 from rename_date.services.validation import InvalidPatternError, InvalidTemplateError
+from rename_date.views.config_frame import PresetKind
 from rename_date.views.main_window import MainWindow
 
 
@@ -76,6 +82,10 @@ class AppController:
 			on_execute=self._on_execute,
 			on_undo=self._on_undo,
 			on_cancel=self._on_cancel,
+		)
+		self.window.set_preset_callbacks(
+			on_export=self._on_preset_export,
+			on_import=self._on_preset_import,
 		)
 		self.window.log_frame.set_callbacks(
 			on_refresh=self._on_log_refresh,
@@ -145,6 +155,133 @@ class AppController:
 			messagebox.showerror("期間テンプレート削除エラー", str(error), parent=self.window)
 		else:
 			self.window.config_frame.set_range_templates(entries)
+
+	def _on_preset_export(self, kind: PresetKind) -> None:
+		service = self._preset_service(kind)
+		path = self.window.choose_preset_export_path(kind)
+		if path is None:
+			return
+
+		try:
+			ensure_external_preset_path(path, service.base_dir)
+			if path.exists() and not messagebox.askyesno(
+				"上書き確認",
+				f"既存のファイルを上書きしますか？\n{path}",
+				parent=self.window,
+			):
+				return
+			service.export_to_json(path)
+		except (OSError, ValueError) as error:
+			self._show_preset_io_error("保存", path, error)
+		else:
+			messagebox.showinfo(
+				"プリセット保存",
+				f"{self._preset_label(kind)}を保存しました。\n{path}",
+				parent=self.window,
+			)
+
+	def _on_preset_import(self, kind: PresetKind) -> None:
+		if self._busy:
+			messagebox.showwarning(
+				"プリセット取込",
+				"処理中はプリセットを取り込めません。処理の完了後に再度お試しください。",
+				parent=self.window,
+			)
+			return
+
+		path = self.window.choose_preset_import_path(kind)
+		if path is None:
+			return
+		before_count = self.window.config_frame.get_preset_count(kind)
+		try:
+			if kind == "pattern":
+				entries = self.pattern_service.import_from_json(path)
+				imported_count = len(entries) - before_count
+				self.window.config_frame.set_patterns(
+					entries,
+					preserve_selection=True,
+				)
+			elif kind == "single_template":
+				entries = self.output_template_service.import_from_json(path)
+				imported_count = len(entries) - before_count
+				self.window.config_frame.set_templates(
+					entries,
+					preserve_selection=True,
+				)
+			else:
+				entries = self.range_output_template_service.import_from_json(path)
+				imported_count = len(entries) - before_count
+				self.window.config_frame.set_range_templates(
+					entries,
+					preserve_selection=True,
+				)
+		except (OSError, ValueError) as error:
+			self._show_preset_io_error("取込", path, error)
+			return
+
+		self._last_items = []
+		self._last_base_dir = None
+		self._last_scan_params = None
+		self.window.preview_frame.clear()
+		self.window.action_frame.set_counts(0, 0, 0)
+		self.window.action_frame.set_progress(0)
+		self.window.action_frame.set_status(
+			"プリセットを取り込みました。再プレビューしてください"
+		)
+		messagebox.showinfo(
+			"プリセット取込",
+			f"{self._preset_label(kind)}を{imported_count}件取り込みました。\n"
+			"再プレビューしてください。",
+			parent=self.window,
+		)
+
+	@staticmethod
+	def _preset_label(kind: PresetKind) -> str:
+		return {
+			"pattern": "入力パターン",
+			"single_template": "単日出力テンプレート",
+			"range_template": "期間出力テンプレート",
+		}[kind]
+
+	def _preset_service(
+		self,
+		kind: PresetKind,
+	) -> PatternService | OutputTemplateService | RangeOutputTemplateService:
+		return {
+			"pattern": self.pattern_service,
+			"single_template": self.output_template_service,
+			"range_template": self.range_output_template_service,
+		}[kind]
+
+	def _show_preset_io_error(
+		self,
+		action: str,
+		path: Path,
+		error: OSError | ValueError,
+	) -> None:
+		if isinstance(error, PresetIOError):
+			reasons = {
+				PresetIOReason.INTERNAL_PATH: "内部設定ファイルは対象に指定できません。",
+				PresetIOReason.INVALID_JSON: "JSONを読み込めません。ファイル内容を確認してください。",
+				PresetIOReason.INVALID_FORMAT: "JSONの形式が正しくありません。",
+				PresetIOReason.VALIDATION: "プリセットの検証に失敗しました。",
+				PresetIOReason.DUPLICATE_NAME: "同名のプリセットがあります。",
+			}
+			lines = [reasons[error.reason]]
+			if error.name is not None:
+				lines.append(f"項目名: {error.name}")
+			if error.index is not None:
+				lines.append(f"項目位置: {error.index + 1}")
+			if error.detail:
+				lines.append(f"詳細: {error.detail}")
+		else:
+			lines = [f"ファイル操作に失敗しました: {error}"]
+		lines.insert(0, f"ファイル: {path}")
+		messagebox.showerror(
+			f"プリセット{action}エラー",
+			"\n".join(lines),
+			parent=self.window,
+		)
 
 	def _on_preview_request(self) -> None:
 		if self._busy:
@@ -352,17 +489,33 @@ class AppController:
 			logging.getLogger(__name__).exception("undo failed")
 			self.window.after(0, self._on_operation_error, "Undoエラー", error)
 		else:
-			self.window.after(0, self._on_undo_complete, items)
+			self.window.after(
+				0,
+				self._on_undo_complete,
+				items,
+				cancel_event.is_set(),
+			)
 
-	def _on_undo_complete(self, items: list[RenameItem]) -> None:
+	def _on_undo_complete(
+		self,
+		items: list[RenameItem],
+		was_cancelled: bool = False,
+	) -> None:
 		if self.window.action_frame.get_log_enabled():
 			self.log_service.log_undo(items, uuid.uuid4().hex[:8])
 		self.window.action_frame.set_undo_enabled(self.undo_service.has_history())
-		self._rescan_after_operation()
+		self._rescan_after_operation(
+			"Undoがキャンセルされました" if was_cancelled else "Undoが完了しました"
+		)
 
-	def _rescan_after_operation(self) -> None:
+	def _rescan_after_operation(
+		self,
+		completion_status: str = "操作が完了しました",
+	) -> None:
 		if self._last_scan_params is None:
 			self.window.action_frame.set_processing(False)
+			self.window.action_frame.set_progress(100)
+			self.window.action_frame.set_status(completion_status)
 			self._busy = False
 			self._cancel_event = None
 			return

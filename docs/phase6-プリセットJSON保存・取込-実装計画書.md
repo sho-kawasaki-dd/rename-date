@@ -49,10 +49,10 @@
 
 ### 2. Views・Controller：操作の接続
 
-- [ ] [MainWindow](../src/rename_date/views/main_window.py) に「プリセット」メニュー（3サブメニュー×保存・取込、`tearoff=False`）と保存・取込のファイルダイアログを追加する。保存ダイアログは `defaultextension=".json"`、`confirmoverwrite=False` とし、内部設定3ファイルの拒否判定を行った後に既存ファイルの上書き確認（`messagebox.askyesno`）を行ってから書き出す。
-- [ ] [AppController](../src/rename_date/controllers/app_controller.py) で種類に応じたサービスへ処理を渡す。取込はダイアログを開く前に処理中かを確認する。Services層の構造化エラーおよびI/Oエラーを日本語のエラーダイアログへ整形して通知し、可能なら該当するファイル・項目名（重複時は衝突したプリセット名）・理由を示す。成功時は保存先または取込件数（取込時は再プレビュー案内を含む）を通知する。
-- [ ] [ConfigFrame](../src/rename_date/views/config_frame.py) の一覧更新で、取込時に限り既存の選択を名前で復元する。選択中名称から復元インデックスを解決する処理を純粋関数（例: `resolve_selected_indices`）として切り出し、複数選択・未選択の維持を単体テスト可能にする。起動時と従来の編集・削除操作の選択挙動は変えない。
-- [ ] [PreviewFrame](../src/rename_date/views/preview_frame.py) に `clear()` を追加し、取込成功時のみプレビュー表示（空状態へのリセット）・件数・ステータスと、Controllerが保持する実行候補および再スキャン用の条件をクリアする。また、再スキャン条件が `None` の状態でUndoが完了・キャンセルされた場合も [_on_undo_complete](../src/rename_date/controllers/app_controller.py) / [_rescan_after_operation](../src/rename_date/controllers/app_controller.py) でステータスと進捗を適切に更新し、古い条件のプレビューが復活しないこととステータスが固まらないことを確認する。
+- [x] [MainWindow](../src/rename_date/views/main_window.py) に「プリセット」メニュー（3サブメニュー×保存・取込、`tearoff=False`）と保存・取込のファイルダイアログを追加する。保存ダイアログは `defaultextension=".json"`、`confirmoverwrite=False` とし、内部設定3ファイルの拒否判定を行った後に既存ファイルの上書き確認（`messagebox.askyesno`）を行ってから書き出す。
+- [x] [AppController](../src/rename_date/controllers/app_controller.py) で種類に応じたサービスへ処理を渡す。取込はダイアログを開く前に処理中かを確認する。Services層の構造化エラーおよびI/Oエラーを日本語のエラーダイアログへ整形して通知し、可能なら該当するファイル・項目名（重複時は衝突したプリセット名）・理由を示す。成功時は保存先または取込件数（取込時は再プレビュー案内を含む）を通知する。
+- [x] [ConfigFrame](../src/rename_date/views/config_frame.py) の一覧更新で、取込時に限り既存の選択を名前で復元する。選択中名称から復元インデックスを解決する処理を純粋関数（例: `resolve_selected_indices`）として切り出し、複数選択・未選択の維持を単体テスト可能にする。起動時と従来の編集・削除操作の選択挙動は変えない。
+- [x] [PreviewFrame](../src/rename_date/views/preview_frame.py) に `clear()` を追加し、取込成功時のみプレビュー表示（空状態へのリセット）・件数・ステータスと、Controllerが保持する実行候補および再スキャン用の条件をクリアする。また、再スキャン条件が `None` の状態でUndoが完了・キャンセルされた場合も [_on_undo_complete](../src/rename_date/controllers/app_controller.py) / [_rescan_after_operation](../src/rename_date/controllers/app_controller.py) でステータスと進捗を適切に更新し、古い条件のプレビューが復活しないこととステータスが固まらないことを確認する。
 
 ### 3. 自動テスト
 

@@ -70,6 +70,11 @@ class PreviewFrame(ttk.Frame):
 				tags=tuple(tags),
 			)
 
+	def clear(self) -> None:
+		"""Remove all preview rows without showing the empty-scan message."""
+
+		self.tree.delete(*self.tree.get_children())
+
 	@staticmethod
 	def _format_parent_path(path: Path, base_dir: Path | None) -> str:
 		if base_dir is not None:

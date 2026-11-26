@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from typing import Literal
 
 from tkinterdnd2 import DND_FILES
 
@@ -17,6 +18,23 @@ from rename_date.services.validation import (
 )
 from rename_date.views.output_template_dialog import OutputTemplateEditDialog
 from rename_date.views.pattern_dialog import PatternEditDialog
+
+
+PresetKind = Literal["pattern", "single_template", "range_template"]
+
+
+def resolve_selected_indices(
+	selected_names: list[str],
+	available_names: list[str],
+) -> list[int]:
+	"""Resolve selected names to their indices in the current display order."""
+
+	selected = set(selected_names)
+	return [
+		index
+		for index, name in enumerate(available_names)
+		if name in selected
+	]
 
 
 def _noop(*args: object, **kwargs: object) -> None:
@@ -171,9 +189,30 @@ class ConfigFrame(ttk.Frame):
 
 		return list(self._targets)
 
-	def set_patterns(self, entries: list[PatternEntry]) -> None:
-		"""Replace the pattern preset list and clear its selection."""
+	def get_preset_count(self, kind: PresetKind) -> int:
+		"""Return the current number of presets in a supported category."""
 
+		if kind == "pattern":
+			return len(self._patterns)
+		if kind == "single_template":
+			return len(self._templates)
+		if kind == "range_template":
+			return len(self._range_templates)
+		raise ValueError(f"unknown preset kind: {kind}")
+
+	def set_patterns(
+		self,
+		entries: list[PatternEntry],
+		*,
+		preserve_selection: bool = False,
+	) -> None:
+		"""Replace the pattern preset list, optionally retaining selected names."""
+
+		selected_names = (
+			[self._patterns[index].name for index in self.pattern_listbox.curselection()]
+			if preserve_selection
+			else []
+		)
 		self._patterns = list(entries)
 		self.pattern_listbox.delete(0, tk.END)
 		for entry in self._patterns:
@@ -183,7 +222,13 @@ class ConfigFrame(ttk.Frame):
 				kind = PatternKind.SINGLE
 			label = "[期間]" if kind is PatternKind.RANGE else "[単日]"
 			self.pattern_listbox.insert(tk.END, f"{label} {entry.name}")
-		if self._patterns:
+		if preserve_selection:
+			for index in resolve_selected_indices(
+				selected_names,
+				[entry.name for entry in self._patterns],
+			):
+				self.pattern_listbox.selection_set(index)
+		elif self._patterns:
 			self.pattern_listbox.selection_set(0)
 
 	def get_selected_patterns(self) -> list[PatternEntry]:
@@ -191,12 +236,27 @@ class ConfigFrame(ttk.Frame):
 
 		return [self._patterns[index] for index in self.pattern_listbox.curselection()]
 
-	def set_templates(self, entries: list[OutputTemplateEntry]) -> None:
-		"""Replace the output-template choices and select the first one."""
+	def set_templates(
+		self,
+		entries: list[OutputTemplateEntry],
+		*,
+		preserve_selection: bool = False,
+	) -> None:
+		"""Replace output-template choices, optionally retaining the selected name."""
 
+		selected = self.get_selected_template() if preserve_selection else None
 		self._templates = list(entries)
 		self.template_combobox.configure(values=[entry.name for entry in self._templates])
-		if self._templates:
+		if preserve_selection:
+			indices = resolve_selected_indices(
+				[selected.name] if selected is not None else [],
+				[entry.name for entry in self._templates],
+			)
+			if indices:
+				self.template_combobox.current(indices[0])
+			else:
+				self.template_combobox.set("")
+		elif self._templates:
 			self.template_combobox.current(0)
 		else:
 			self.template_combobox.set("")
@@ -209,14 +269,31 @@ class ConfigFrame(ttk.Frame):
 			return None
 		return self._templates[index]
 
-	def set_range_templates(self, entries: list[OutputTemplateEntry]) -> None:
-		"""Replace the range output-template choices."""
+	def set_range_templates(
+		self,
+		entries: list[OutputTemplateEntry],
+		*,
+		preserve_selection: bool = False,
+	) -> None:
+		"""Replace range output-template choices, optionally retaining its selection."""
 
+		selected = (
+			self.get_selected_range_template() if preserve_selection else None
+		)
 		self._range_templates = list(entries)
 		self.range_template_combobox.configure(
 			values=[entry.name for entry in self._range_templates]
 		)
-		if self._range_templates:
+		if preserve_selection:
+			indices = resolve_selected_indices(
+				[selected.name] if selected is not None else [],
+				[entry.name for entry in self._range_templates],
+			)
+			if indices:
+				self.range_template_combobox.current(indices[0])
+			else:
+				self.range_template_combobox.set("")
+		elif self._range_templates:
 			self.range_template_combobox.current(0)
 		else:
 			self.range_template_combobox.set("")
