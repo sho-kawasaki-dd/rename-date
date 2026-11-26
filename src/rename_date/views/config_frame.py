@@ -27,6 +27,8 @@ class ConfigFrame(ttk.Frame):
 		on_pattern_delete: Callable[[str], None] = _noop,
 		on_template_save: Callable[[OutputTemplateEntry], None] = _noop,
 		on_template_delete: Callable[[str], None] = _noop,
+		on_range_template_save: Callable[[OutputTemplateEntry], None] = _noop,
+		on_range_template_delete: Callable[[str], None] = _noop,
 		on_preview_request: Callable[[], None] = _noop,
 		**kwargs: object,
 	) -> None:
@@ -35,11 +37,14 @@ class ConfigFrame(ttk.Frame):
 		self._on_pattern_delete = on_pattern_delete
 		self._on_template_save = on_template_save
 		self._on_template_delete = on_template_delete
+		self._on_range_template_save = on_range_template_save
+		self._on_range_template_delete = on_range_template_delete
 		self._on_preview_request = on_preview_request
 
 		self._targets: list[Path] = []
 		self._patterns: list[PatternEntry] = []
 		self._templates: list[OutputTemplateEntry] = []
+		self._range_templates: list[OutputTemplateEntry] = []
 
 		self._build_target_section()
 		self._build_pattern_section()
@@ -129,6 +134,8 @@ class ConfigFrame(ttk.Frame):
 			"on_pattern_delete": "_on_pattern_delete",
 			"on_template_save": "_on_template_save",
 			"on_template_delete": "_on_template_delete",
+			"on_range_template_save": "_on_range_template_save",
+			"on_range_template_delete": "_on_range_template_delete",
 			"on_preview_request": "_on_preview_request",
 		}
 		for name, callback in kwargs.items():
@@ -175,6 +182,16 @@ class ConfigFrame(ttk.Frame):
 		if index < 0 or index >= len(self._templates):
 			return None
 		return self._templates[index]
+
+	def set_range_templates(self, entries: list[OutputTemplateEntry]) -> None:
+		"""Replace the range output-template choices."""
+
+		self._range_templates = list(entries)
+
+	def get_selected_range_template(self) -> OutputTemplateEntry | None:
+		"""Return the first range output template until the range UI is opened."""
+
+		return self._range_templates[0] if self._range_templates else None
 
 	def _choose_folder(self) -> None:
 		selected = filedialog.askdirectory(parent=self.winfo_toplevel())

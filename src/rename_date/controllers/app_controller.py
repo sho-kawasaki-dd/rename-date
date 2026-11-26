@@ -12,7 +12,10 @@ from rename_date.models.output_template_entry import OutputTemplateEntry
 from rename_date.models.pattern_entry import PatternEntry
 from rename_date.models.rename_item import ItemStatus, RenameItem
 from rename_date.services.log_service import LogService
-from rename_date.services.output_template_service import OutputTemplateService
+from rename_date.services.output_template_service import (
+	OutputTemplateService,
+	RangeOutputTemplateService,
+)
 from rename_date.services.pattern_service import PatternService
 from rename_date.services.rename_service import RenameService
 from rename_date.services.scanner_service import ScannerService
@@ -21,7 +24,7 @@ from rename_date.services.validation import InvalidPatternError, InvalidTemplate
 from rename_date.views.main_window import MainWindow
 
 
-ScanParams = tuple[list[Path], list[str], str]
+ScanParams = tuple[list[Path], list[str], str, str]
 
 
 class AppController:
@@ -36,6 +39,7 @@ class AppController:
 		log_service: LogService,
 		pattern_service: PatternService,
 		output_template_service: OutputTemplateService,
+		range_output_template_service: RangeOutputTemplateService,
 	) -> None:
 		self.window = window
 		self.scanner_service = scanner_service
@@ -44,6 +48,7 @@ class AppController:
 		self.log_service = log_service
 		self.pattern_service = pattern_service
 		self.output_template_service = output_template_service
+		self.range_output_template_service = range_output_template_service
 
 		self._busy = False
 		self._cancel_event: threading.Event | None = None
@@ -54,11 +59,17 @@ class AppController:
 
 		self.window.config_frame.set_patterns(self.pattern_service.load())
 		self.window.config_frame.set_templates(self.output_template_service.load())
+		if hasattr(self.window.config_frame, "set_range_templates"):
+			self.window.config_frame.set_range_templates(
+				self.range_output_template_service.load()
+			)
 		self.window.config_frame.set_callbacks(
 			on_pattern_save=self._on_pattern_save,
 			on_pattern_delete=self._on_pattern_delete,
 			on_template_save=self._on_template_save,
 			on_template_delete=self._on_template_delete,
+			on_range_template_save=self._on_range_template_save,
+			on_range_template_delete=self._on_range_template_delete,
 			on_preview_request=self._on_preview_request,
 		)
 		self.window.action_frame.set_callbacks(
@@ -119,6 +130,22 @@ class AppController:
 		else:
 			self.window.config_frame.set_templates(entries)
 
+	def _on_range_template_save(self, entry: OutputTemplateEntry) -> None:
+		try:
+			entries = self.range_output_template_service.upsert(entry)
+		except (InvalidTemplateError, ValueError) as error:
+			messagebox.showerror("期間テンプレート保存エラー", str(error), parent=self.window)
+		else:
+			self.window.config_frame.set_range_templates(entries)
+
+	def _on_range_template_delete(self, name: str) -> None:
+		try:
+			entries = self.range_output_template_service.delete(name)
+		except ValueError as error:
+			messagebox.showerror("期間テンプレート削除エラー", str(error), parent=self.window)
+		else:
+			self.window.config_frame.set_range_templates(entries)
+
 	def _on_preview_request(self) -> None:
 		if self._busy:
 			return
@@ -126,6 +153,11 @@ class AppController:
 		targets = self.window.config_frame.get_targets()
 		patterns = self.window.config_frame.get_selected_patterns()
 		template = self.window.config_frame.get_selected_template()
+		range_template = (
+			self.window.config_frame.get_selected_range_template()
+			if hasattr(self.window.config_frame, "get_selected_range_template")
+			else None
+		)
 		if not targets:
 			messagebox.showwarning("プレビュー", "対象を選択してください", parent=self.window)
 			return
@@ -139,12 +171,20 @@ class AppController:
 				parent=self.window,
 			)
 			return
+		if range_template is None:
+			messagebox.showwarning(
+				"プレビュー",
+				"期間用出力テンプレートを選択してください",
+				parent=self.window,
+			)
+			return
 
 		pattern_strings = [entry.pattern for entry in patterns]
 		self._start_scan(
 			list(targets),
 			pattern_strings,
 			template.template,
+			range_template.template,
 			targets[0] if len(targets) == 1 and targets[0].is_dir() else None,
 		)
 
@@ -153,9 +193,15 @@ class AppController:
 		targets: list[Path],
 		patterns: list[str],
 		output_template: str,
+		range_output_template: str,
 		base_dir: Path | None,
 	) -> None:
-		self._last_scan_params = (list(targets), list(patterns), output_template)
+		self._last_scan_params = (
+			list(targets),
+			list(patterns),
+			output_template,
+			range_output_template,
+		)
 		self._last_items = []
 		self._last_base_dir = base_dir
 		self._busy = True
@@ -165,7 +211,7 @@ class AppController:
 		self.window.action_frame.set_progress(0)
 		self._worker = threading.Thread(
 			target=self._scan_worker,
-			args=(targets, patterns, output_template, base_dir, self._cancel_event),
+			args=(targets, patterns, output_template, range_output_template, base_dir, self._cancel_event),
 			daemon=True,
 		)
 		self._worker.start()
@@ -175,6 +221,7 @@ class AppController:
 		targets: list[Path],
 		patterns: list[str],
 		output_template: str,
+		range_output_template: str,
 		base_dir: Path | None,
 		cancel_event: threading.Event,
 	) -> None:
@@ -185,6 +232,7 @@ class AppController:
 				output_template,
 				cancel_event=cancel_event,
 				progress_callback=self._report_progress,
+				range_output_template=range_output_template,
 			)
 		except InvalidPatternError as error:
 			self.window.after(0, self._on_scan_error, "パターンエラー", error)
@@ -318,9 +366,15 @@ class AppController:
 			self._busy = False
 			self._cancel_event = None
 			return
-		targets, patterns, output_template = self._last_scan_params
+		targets, patterns, output_template, range_output_template = self._last_scan_params
 		base_dir = targets[0] if len(targets) == 1 and targets[0].is_dir() else None
-		self._start_scan(targets, patterns, output_template, base_dir)
+		self._start_scan(
+			targets,
+			patterns,
+			output_template,
+			range_output_template,
+			base_dir,
+		)
 
 	def _on_operation_error(self, title: str, error: Exception) -> None:
 		messagebox.showerror(title, str(error), parent=self.window)

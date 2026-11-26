@@ -6,7 +6,10 @@ from tkinter import messagebox
 
 from rename_date.controllers.app_controller import AppController
 from rename_date.services.log_service import LogService
-from rename_date.services.output_template_service import OutputTemplateService
+from rename_date.services.output_template_service import (
+    OutputTemplateService,
+    RangeOutputTemplateService,
+)
 from rename_date.services.pattern_service import PatternService
 from rename_date.services.rename_service import RenameService
 from rename_date.services.scanner_service import ScannerService
@@ -31,6 +34,7 @@ def main() -> None:
 
             pattern_service = PatternService()
             output_template_service = OutputTemplateService()
+            range_output_template_service = RangeOutputTemplateService()
             log_service = LogService()
             window = MainWindow()
             AppController(
@@ -41,6 +45,7 @@ def main() -> None:
                 log_service,
                 pattern_service,
                 output_template_service,
+                range_output_template_service,
             )
             window.mainloop()
     finally:

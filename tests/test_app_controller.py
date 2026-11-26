@@ -17,9 +17,11 @@ class FakeConfigFrame:
 		self.targets: list[Path] = []
 		self.selected_patterns: list[PatternEntry] = []
 		self.selected_template: OutputTemplateEntry | None = None
+		self.selected_range_template: OutputTemplateEntry | None = None
 		self.callbacks = {}
 		self.patterns = []
 		self.templates = []
+		self.range_templates = []
 
 	def set_patterns(self, entries):
 		self.patterns = list(entries)
@@ -28,6 +30,11 @@ class FakeConfigFrame:
 		self.templates = list(entries)
 		if self.selected_template is None and self.templates:
 			self.selected_template = self.templates[0]
+
+	def set_range_templates(self, entries):
+		self.range_templates = list(entries)
+		if self.selected_range_template is None and self.range_templates:
+			self.selected_range_template = self.range_templates[0]
 
 	def set_callbacks(self, **callbacks):
 		self.callbacks.update(callbacks)
@@ -40,6 +47,9 @@ class FakeConfigFrame:
 
 	def get_selected_template(self):
 		return self.selected_template
+
+	def get_selected_range_template(self):
+		return self.selected_range_template
 
 
 class FakePreviewFrame:
@@ -176,13 +186,33 @@ class FakeTemplateService:
 		return list(self.entries)
 
 
+class FakeRangeTemplateService(FakeTemplateService):
+	pass
+
+
 class FakeScannerService:
 	def __init__(self, items):
 		self.items = list(items)
 		self.calls = []
 
-	def scan(self, targets, patterns, output_template, cancel_event=None, progress_callback=None):
-		self.calls.append((list(targets), list(patterns), output_template, cancel_event))
+	def scan(
+		self,
+		targets,
+		patterns,
+		output_template,
+		cancel_event=None,
+		progress_callback=None,
+		range_output_template="{Y}{M}{D}-{Y2}{M2}{D2}",
+	):
+		self.calls.append(
+			(
+				list(targets),
+				list(patterns),
+				output_template,
+				range_output_template,
+				cancel_event,
+			)
+		)
 		if progress_callback:
 			progress_callback(1, 1)
 		return list(self.items)
@@ -241,6 +271,7 @@ def make_controller(monkeypatch, tmp_path):
 	monkeypatch.setattr(controller_module.threading, "Thread", ImmediateThread)
 	pattern = PatternEntry("default", r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)")
 	template = OutputTemplateEntry("default", "{Y}{M}{D}")
+	range_template = OutputTemplateEntry("range default", "{Y}{M}{D}-{Y2}{M2}{D2}")
 	source = tmp_path / "before.txt"
 	target = tmp_path / "after.txt"
 	item = RenameItem(source, target)
@@ -248,13 +279,24 @@ def make_controller(monkeypatch, tmp_path):
 	window.config_frame.targets = [tmp_path]
 	window.config_frame.selected_patterns = [pattern]
 	window.config_frame.selected_template = template
+	window.config_frame.selected_range_template = range_template
 	scanner = FakeScannerService([item])
 	rename = FakeRenameService([item])
 	undo = FakeUndoService()
 	log = FakeLogService()
 	patterns = FakePatternService([pattern])
 	templates = FakeTemplateService([template])
-	controller = AppController(window, scanner, rename, undo, log, patterns, templates)
+	range_templates = FakeRangeTemplateService([range_template])
+	controller = AppController(
+		window,
+		scanner,
+		rename,
+		undo,
+		log,
+		patterns,
+		templates,
+		range_templates,
+	)
 	return controller, window, scanner, rename, undo, log, patterns, templates, pattern, template, item
 
 

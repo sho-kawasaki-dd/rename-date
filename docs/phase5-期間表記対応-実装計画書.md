@@ -119,12 +119,12 @@
 
 ### 6. Controller と起動処理
 
-- [ ] `__main__.py` で `RangeOutputTemplateService` を作成し、`AppController` に渡す。
-- [ ] `controllers/app_controller.py`:
-  - [ ] `ScanParams` 型エイリアスを期間用テンプレート文字列を含む 4 要素タプルに更新する。
-  - [ ] 起動時に `config_frame.set_range_templates(...)` で期間用テンプレートを読み込み、`config_frame.set_callbacks(...)` に `on_range_template_save` / `on_range_template_delete` を登録する。
-  - [ ] 期間用テンプレートの保存・削除ハンドラー（`_on_range_template_save` / `_on_range_template_delete`）を追加する。エラー時の表示は既存の単日用ハンドラーと同じにする。
-  - [ ] `_on_preview_request()` で `get_selected_range_template()` が `None` の場合の警告チェックを追加し、選択中の期間用テンプレートを `ScannerService.scan(range_output_template=...)` に渡す。`_last_scan_params` にも含め、実行後・Undo 後の再スキャンでも同じ値が使われるようにする。
+- [x] `__main__.py` で `RangeOutputTemplateService` を作成し、`AppController` に渡す。
+- [x] `controllers/app_controller.py`:
+  - [x] `ScanParams` 型エイリアスを期間用テンプレート文字列を含む 4 要素タプルに更新する。
+  - [x] 起動時に `config_frame.set_range_templates(...)` で期間用テンプレートを読み込み、`config_frame.set_callbacks(...)` に `on_range_template_save` / `on_range_template_delete` を登録する。
+  - [x] 期間用テンプレートの保存・削除ハンドラー（`_on_range_template_save` / `_on_range_template_delete`）を追加する。エラー時の表示は既存の単日用ハンドラーと同じにする。
+  - [x] `_on_preview_request()` で `get_selected_range_template()` が `None` の場合の警告チェックを追加し、選択中の期間用テンプレートを `ScannerService.scan(range_output_template=...)` に渡す。`_last_scan_params` にも含め、実行後・Undo 後の再スキャンでも同じ値が使われるようにする。
 
 ### 7. View
 
