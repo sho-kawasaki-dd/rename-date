@@ -63,10 +63,11 @@
 
 ### 4. ドキュメント・バージョン更新・配布検証
 
-- [ ] [開発計画書](./rename-date開発計画書.md) と [プロジェクトガイドライン](../.github/copilot-instructions.md) のグループ数（既存ガイドラインの「2・7以外」誤記も「2〜6以外」へ修正）・適用順・保存先を更新する。[取扱説明書](../取扱説明書.md) と [パターン設定ガイド](../パターン設定ガイド.md) に入力例・出力例・標準パターンで変換しない年月の期間表記（区切りが `-`・`〜`・`～` で空白なし）・半角1〜2桁数字だけの拡張子には年月ルールが適用されない制約・年月用JSON入出力を追記する。旧版での上書きリスクと復元手順は [取扱説明書](../取扱説明書.md) に明記する（v0.4.0 リリースノート作成時に参照）。
-- [ ] `uv version 0.4.0` で [pyproject.toml](../pyproject.toml) と [uv.lock](../uv.lock) を更新し、[setup.iss](../installer/setup.iss) の単独ビルド時の既定値も `0.4.0` に揃える。`uv lock --check` と `uv run --locked python -c "from importlib.metadata import version; assert version('rename-date') == '0.4.0'"` で確認する。既存の `AppId` は維持する。
+- [x] [開発計画書](./rename-date開発計画書.md) と [プロジェクトガイドライン](../.github/copilot-instructions.md) のグループ数（既存ガイドラインの「2・7以外」誤記も「2〜6以外」へ修正）・適用順・保存先を更新する。[取扱説明書](../取扱説明書.md) と [パターン設定ガイド](../パターン設定ガイド.md) に入力例・出力例・標準パターンで変換しない年月の期間表記（区切りが `-`・`〜`・`～` で空白なし）・半角1〜2桁数字だけの拡張子には年月ルールが適用されない制約・年月用JSON入出力を追記する。旧版での上書きリスクと復元手順は [取扱説明書](../取扱説明書.md) に明記する（v0.4.0 リリースノート作成時に参照）。
+- [x] `uv version 0.4.0` で [pyproject.toml](../pyproject.toml) と [uv.lock](../uv.lock) を更新し、[setup.iss](../installer/setup.iss) の単独ビルド時の既定値も `0.4.0` に揃える。`uv lock --check` と `uv run --locked python -c "from importlib.metadata import version; assert version('rename-date') == '0.4.0'"` で確認する。既存の `AppId` は維持する。
 - [ ] Windowsの検証環境で、最小ウィンドウサイズ `700x450` でも年月用の操作とプレビューが可能なことを確認する。年月パターンを登録し、単日・期間・年月の混在プレビューから実行・Undoまで行う。年月テンプレートの保存・取込と、再起動後の設定保持も確認する。
-- [ ] Inno Setup が使える検証用作業コピーで `pwsh -File .\scripts\build-release.ps1`（PowerShell 7 が無い環境では `powershell -File .\scripts\build-release.ps1`）を実行し、`installer\Output\rename-date-0.4.0-setup.exe` の生成を確認する。検証用プロファイルで v0.3.0 から上書きインストールし、既存の内部設定3ファイルが年月項目を登録する前には変更されず、v0.4.0 で新機能が使えることを確認する。
+- [x] Inno Setup が使える検証用作業コピーで `pwsh -File .\scripts\build-release.ps1`（PowerShell 7 が無い環境では `powershell -File .\scripts\build-release.ps1`）を実行し、`installer\Output\rename-date-0.4.0-setup.exe` の生成を確認する。
+- [ ] 検証用プロファイルで v0.3.0 から上書きインストールし、既存の内部設定3ファイルが年月項目を登録する前には変更されず、v0.4.0 で新機能が使えることを確認する。
 
 ## スコープ外
 
