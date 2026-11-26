@@ -216,6 +216,165 @@ def test_month_save_and_load_json(tmp_path):
 	) == [entry.to_dict()]
 
 
+def test_month_template_json_round_trip_with_bom(tmp_path):
+	source_service = MonthOutputTemplateService(tmp_path / "source")
+	destination_service = MonthOutputTemplateService(tmp_path / "destination")
+	entries = [
+		OutputTemplateEntry("month", "{Y}-{M}"),
+		OutputTemplateEntry("alternate", "{Y}_{Y}-{M}"),
+	]
+	source_service.save(entries)
+	destination_service.save([OutputTemplateEntry("existing", "{Y}_{M}")])
+	export_path = tmp_path / "month-export.json"
+	source_service.export_to_json(export_path)
+	exported_bytes = export_path.read_bytes()
+
+	assert not exported_bytes.startswith(b"\xef\xbb\xbf")
+	import_path = tmp_path / "month-import.json"
+	import_path.write_bytes(b"\xef\xbb\xbf" + exported_bytes)
+
+	assert destination_service.import_from_json(import_path) == [
+		OutputTemplateEntry("existing", "{Y}_{M}"),
+		*entries,
+	]
+
+
+@pytest.mark.parametrize(
+	("source_type", "source_template", "destination_type", "destination_template"),
+	[
+		(
+			MonthOutputTemplateService,
+			"{Y}-{M}",
+			OutputTemplateService,
+			"{Y}{M}{D}",
+		),
+		(
+			MonthOutputTemplateService,
+			"{Y}-{M}",
+			RangeOutputTemplateService,
+			"{Y}{M}{D}-{Y2}{M2}{D2}",
+		),
+		(
+			OutputTemplateService,
+			"{Y}{M}{D}",
+			MonthOutputTemplateService,
+			"{Y}-{M}",
+		),
+		(
+			RangeOutputTemplateService,
+			"{Y}{M}{D}-{Y2}{M2}{D2}",
+			MonthOutputTemplateService,
+			"{Y}-{M}",
+		),
+	],
+)
+def test_month_templates_cannot_be_imported_as_other_kinds(
+	tmp_path,
+	source_type,
+	source_template,
+	destination_type,
+	destination_template,
+):
+	source_service = source_type(tmp_path / "source")
+	destination_service = destination_type(tmp_path / "destination")
+	source_service.save([OutputTemplateEntry("source", source_template)])
+	destination_service.save(
+		[OutputTemplateEntry("existing", destination_template)]
+	)
+	export_path = tmp_path / "cross-kind.json"
+	source_service.export_to_json(export_path)
+	original_config = destination_service.file_path.read_bytes()
+
+	with pytest.raises(PresetIOError) as error:
+		destination_service.import_from_json(export_path)
+
+	assert error.value.reason is PresetIOReason.VALIDATION
+	assert error.value.name == "source"
+	assert destination_service.file_path.read_bytes() == original_config
+
+
+@pytest.mark.parametrize(
+	"invalid",
+	["\u0000", "\t"],
+)
+def test_month_import_rejects_mixed_valid_and_invalid_entries_without_changes(
+	tmp_path,
+	invalid,
+):
+	service = MonthOutputTemplateService(tmp_path / "config")
+	service.save([OutputTemplateEntry("existing", "{Y}-{M}")])
+	original_config = service.file_path.read_bytes()
+	import_path = tmp_path / "mixed.json"
+	import_path.write_text(
+		json.dumps(
+			[
+				{"name": "valid", "template": "{Y}-{M}"},
+				{"name": "invalid", "template": f"{{Y}}{invalid}{{M}}"},
+			]
+		),
+		encoding="utf-8",
+	)
+	original_import = import_path.read_bytes()
+
+	with pytest.raises(PresetIOError) as error:
+		service.import_from_json(import_path)
+
+	assert error.value.reason is PresetIOReason.VALIDATION
+	assert error.value.name == "invalid"
+	assert error.value.index == 1
+	assert service.file_path.read_bytes() == original_config
+	assert import_path.read_bytes() == original_import
+
+
+def test_month_import_rejects_duplicate_name_without_changes(tmp_path):
+	service = MonthOutputTemplateService(tmp_path / "config")
+	existing = OutputTemplateEntry("same", "{Y}-{M}")
+	service.save([existing])
+	original_config = service.file_path.read_bytes()
+	import_path = tmp_path / "duplicate-month.json"
+	import_path.write_text(
+		json.dumps([OutputTemplateEntry("same", "{Y}_{M}").to_dict()]),
+		encoding="utf-8",
+	)
+	original_import = import_path.read_bytes()
+
+	with pytest.raises(PresetIOError) as error:
+		service.import_from_json(import_path)
+
+	assert error.value.reason is PresetIOReason.DUPLICATE_NAME
+	assert error.value.name == "same"
+	assert service.file_path.read_bytes() == original_config
+	assert import_path.read_bytes() == original_import
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+	],
+)
+@pytest.mark.parametrize("operation", ["export", "import"])
+def test_other_template_services_reject_month_internal_path(
+	tmp_path,
+	service_type,
+	template,
+	operation,
+):
+	base_dir = tmp_path / "config"
+	service = service_type(base_dir)
+	service.save([OutputTemplateEntry("existing", template)])
+	month_internal_path = base_dir / config.MONTH_OUTPUT_TEMPLATES_FILE_NAME
+
+	with pytest.raises(PresetIOError) as error:
+		if operation == "export":
+			service.export_to_json(month_internal_path)
+		else:
+			service.import_from_json(month_internal_path)
+
+	assert error.value.reason is PresetIOReason.INTERNAL_PATH
+
+
 @pytest.mark.parametrize(
 	("service_type", "template"),
 	[

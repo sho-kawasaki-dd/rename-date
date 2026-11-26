@@ -250,6 +250,7 @@ def test_marks_invalid_year_month_as_invalid_date(tmp_path):
     [
         "2026.11.26.pdf",
         "2026.11-26.pdf",
+        "2026.13.26",
         "2026.07-2026.08.pdf",
         "2026.7〜2026.08.pdf",
         "2026.07～2026.8.pdf",
@@ -280,6 +281,82 @@ def test_standard_month_pattern_converts_independent_month_after_range(tmp_path)
     )
 
     assert items[0].target_name == "2026.7-2026.08_売上_2027-03.pdf"
+
+
+def test_month_pattern_converts_multiple_matches_in_one_filename(tmp_path):
+    source = tmp_path / "売上_2026.7_2027.3.pdf"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [MONTH_PATTERN],
+        "{Y}{M}{D}",
+        month_output_template="{Y}-{M}",
+    )
+
+    assert items[0].target_name == "売上_2026-07_2027-03.pdf"
+
+
+def test_invalid_month_match_prevents_partial_conversion(tmp_path):
+    source = tmp_path / "売上_2026.7_2027.13.pdf"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [r"([0-9]{4})\.([0-9]{1,2})"],
+        "{Y}{M}{D}",
+        month_output_template="{Y}-{M}",
+    )
+
+    assert len(items) == 1
+    assert items[0].status == ItemStatus.INVALID_DATE
+    assert items[0].target_path == source.resolve()
+
+
+def test_month_pattern_excludes_unchanged_results(tmp_path):
+    source = tmp_path / "2026.07.pdf"
+    source.write_text("sample", encoding="utf-8")
+
+    assert ScannerService().scan(
+        [source],
+        [MONTH_PATTERN],
+        "{Y}{M}{D}",
+        month_output_template="{Y}.{M}",
+    ) == []
+
+
+def test_month_pattern_resolves_existing_name_conflict(tmp_path):
+    source = tmp_path / "売上_2026.7.pdf"
+    existing = tmp_path / "売上_2026-07.pdf"
+    source.write_text("sample", encoding="utf-8")
+    existing.write_text("existing", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [MONTH_PATTERN],
+        "{Y}{M}{D}",
+        month_output_template="{Y}-{M}",
+    )
+
+    assert items[0].target_name == "売上_2026-07_1.pdf"
+    assert items[0].status == ItemStatus.RESOLVED_CONFLICT
+
+
+def test_month_patterns_keep_selected_relative_order(tmp_path):
+    source = tmp_path / "2026.7.txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"([0-9]{4})\.([0-9]{1,2})",
+            r"([0-9]{4})-([0-9]{2})",
+        ],
+        "{Y}{M}{D}",
+        month_output_template="{Y}-{M}-{Y}",
+    )
+
+    assert items[0].target_name == "2026-07-2026-2026.txt"
 
 
 @pytest.mark.parametrize(

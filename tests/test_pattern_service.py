@@ -131,6 +131,7 @@ def test_export_and_import_preserve_order_and_utf8_without_bom(
     entries = [
         default_pattern,
         PatternEntry("日本語", r"(\d{4})-(\d{2})-(\d{2})"),
+        PatternEntry("年月", r"(\d{4})\.(\d{1,2})"),
     ]
     source_service.save(entries)
 
@@ -329,13 +330,20 @@ def test_json_operations_reject_internal_preset_paths(
 
 @pytest.mark.parametrize(
     "file_name",
-    ["patterns.json", "output_templates.json", "range_output_templates.json"],
+    [
+        "patterns.json",
+        "output_templates.json",
+        "range_output_templates.json",
+        config.MONTH_OUTPUT_TEMPLATES_FILE_NAME,
+    ],
 )
+@pytest.mark.parametrize("operation", ["export", "import"])
 def test_json_operations_reject_case_insensitive_and_relative_internal_paths(
     tmp_path,
     monkeypatch,
     default_pattern,
     file_name,
+    operation,
 ):
     base_dir = tmp_path / "config"
     service = PatternService(base_dir)
@@ -346,7 +354,10 @@ def test_json_operations_reject_case_insensitive_and_relative_internal_paths(
 
     for path in (relative_path, differently_cased_path):
         with pytest.raises(PresetIOError) as error:
-            service.export_to_json(path)
+            if operation == "export":
+                service.export_to_json(path)
+            else:
+                service.import_from_json(path)
         assert error.value.reason is PresetIOReason.INTERNAL_PATH
 
 
