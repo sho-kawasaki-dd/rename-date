@@ -99,10 +99,10 @@
 
 ### 3. 期間の解釈（新規 `services/date_span.py`）
 
-- [ ] `DateSpan` dataclass（`start: date`, `end: date | None`, `end_has_year: bool`）を定義する。単日の場合は `end=None` とする。
-- [ ] `parse_match(match: re.Match[str], kind: PatternKind) -> DateSpan` を実装する。グループ数に応じて要件Aの対応表どおりに値を取り出し、要件Bのルール（数値比較で繰り上げを判定してから `date()` を生成）で開始日・終了日を作る。日付として不正な場合、および必須グループ（Y・M・D・D2）が `None` または整数変換不能な場合は `ValueError` を送出する。
-- [ ] `render(span: DateSpan, template: str) -> str` を実装する。要件Cのルールでプレースホルダーを置換する。置換は `{Y2}` `{M2}` `{D2}` を先に処理し、`{Y}` などとの取り違えが起きないようにする。
-- [ ] tkinter を import しないことを確認する。
+- [x] `DateSpan` dataclass（`start: date`, `end: date | None`, `end_has_year: bool`）を定義する。単日の場合は `end=None` とする。
+- [x] `parse_match(match: re.Match[str], kind: PatternKind) -> DateSpan` を実装する。グループ数に応じて要件Aの対応表どおりに値を取り出し、要件Bのルール（数値比較で繰り上げを判定してから `date()` を生成）で開始日・終了日を作る。日付として不正な場合、および必須グループ（Y・M・D・D2）が `None` または整数変換不能な場合は `ValueError` を送出する。
+- [x] `render(span: DateSpan, template: str) -> str` を実装する。要件Cのルールでプレースホルダーを置換する。置換は `{Y2}` `{M2}` `{D2}` を先に処理し、`{Y}` などとの取り違えが起きないようにする。
+- [x] tkinter を import しないことを確認する。
 
 ### 4. スキャナー（`services/scanner_service.py`）
 
