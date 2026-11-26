@@ -196,3 +196,108 @@ def test_reports_progress_for_every_collected_file(sample_tree, default_pattern)
     assert progress
     total = progress[-1][1]
     assert progress == [(index, total) for index in range(1, total + 1)]
+
+
+RANGE_PATTERN = r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(?:(?:(\d{4})\.)?(\d{1,2})\.)?(\d{1,2})\)"
+RANGE_TEMPLATE = "{Y}{M}{D}-{Y2}{M2}{D2}"
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("(2024.12.20-2025.01.05).txt", "20241220-20250105.txt"),
+        ("(2024.12.20-12.25).txt", "20241220-1225.txt"),
+        ("(2024.12.20-25).txt", "20241220-1225.txt"),
+        ("(2024.12.25-01.05).txt", "20241225-0105.txt"),
+    ],
+)
+def test_scans_range_forms_with_default_template(tmp_path, filename, expected):
+    source = tmp_path / filename
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [RANGE_PATTERN],
+        "{Y}{M}{D}",
+        range_output_template=RANGE_TEMPLATE,
+    )
+
+    assert items[0].target_name == expected
+
+
+def test_scans_multiple_ranges_in_one_filename(tmp_path):
+    source = tmp_path / "期間 (2024.12.20-25) と (2025.01.10-15).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [RANGE_PATTERN],
+        "{Y}{M}{D}",
+        range_output_template=RANGE_TEMPLATE,
+    )
+
+    assert items[0].target_name == "期間 20241220-1225 と 20250110-0115.txt"
+
+
+def test_applies_range_before_selected_single_pattern(tmp_path):
+    source = tmp_path / "(2024.12.20-2025.01.05).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+            RANGE_PATTERN,
+        ],
+        "{Y}{M}{D}",
+        range_output_template=RANGE_TEMPLATE,
+    )
+
+    assert items[0].target_name == "20241220-20250105.txt"
+
+
+def test_mixed_range_and_single_patterns_are_both_applied(tmp_path):
+    source = tmp_path / "(2024.12.20-25) と (2025.3.7).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+            RANGE_PATTERN,
+        ],
+        "{Y}{M}{D}",
+        range_output_template=RANGE_TEMPLATE,
+    )
+
+    assert items[0].target_name == "20241220-1225 と 20250307.txt"
+
+
+def test_invalid_range_does_not_apply_later_patterns(tmp_path):
+    source = tmp_path / "(2024.01.31-30) と (2025.3.7).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+            RANGE_PATTERN,
+        ],
+        "{Y}{M}{D}",
+        range_output_template=RANGE_TEMPLATE,
+    )
+
+    assert items[0].status == ItemStatus.INVALID_DATE
+
+
+def test_rejects_invalid_range_output_template(tmp_path):
+    source = tmp_path / "(2024.12.20-25).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    with pytest.raises(InvalidTemplateError):
+        ScannerService().scan(
+            [source],
+            [RANGE_PATTERN],
+            "{Y}{M}{D}",
+            range_output_template="{Y}{M}{D}",
+        )

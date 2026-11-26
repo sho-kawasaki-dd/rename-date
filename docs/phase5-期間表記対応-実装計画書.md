@@ -106,11 +106,11 @@
 
 ### 4. スキャナー（`services/scanner_service.py`）
 
-- [ ] `scan()` に `range_output_template: str = config.DEFAULT_RANGE_OUTPUT_TEMPLATE` を追加する。既存の位置引数呼び出し（第4引数 `cancel_event`）を壊さないよう、**`progress_callback` の後ろ（末尾）またはキーワード専用引数**として配置する。処理開始前に `validate_range_output_template()` で検証する。
-- [ ] 選択されたパターンをコンパイルした後、`pattern_kind()` で種類を求め、要件Dのとおり期間パターンを先にする安定な並べ替えを行う。
-- [ ] 日付の検証と置換を `date_span.parse_match()` / `date_span.render()` に置き換える。種類が `RANGE` なら期間用テンプレート、`SINGLE` なら単日用テンプレートを使う。
-- [ ] 置き換えが済んだら、使われなくなった `_date_parts()` / `_render_template()` を削除する。
-- [ ] 空白整理・元と同じ名前の除外・衝突回避・キャンセル・進捗通知の処理が変わっていないことを確認する。
+- [x] `scan()` に `range_output_template: str = config.DEFAULT_RANGE_OUTPUT_TEMPLATE` を追加する。既存の位置引数呼び出し（第4引数 `cancel_event`）を壊さないよう、**`progress_callback` の後ろ（末尾）またはキーワード専用引数**として配置する。処理開始前に `validate_range_output_template()` で検証する。
+- [x] 選択されたパターンをコンパイルした後、`pattern_kind()` で種類を求め、要件Dのとおり期間パターンを先にする安定な並べ替えを行う。
+- [x] 日付の検証と置換を `date_span.parse_match()` / `date_span.render()` に置き換える。種類が `RANGE` なら期間用テンプレート、`SINGLE` なら単日用テンプレートを使う。
+- [x] 置き換えが済んだら、使われなくなった `_date_parts()` / `_render_template()` を削除する。
+- [x] 空白整理・元と同じ名前の除外・衝突回避・キャンセル・進捗通知の処理が変わっていないことを確認する。
 
 ### 5. 期間用テンプレートのプリセット管理
 

@@ -4,16 +4,18 @@ import os
 import stat
 import re
 from collections.abc import Callable, Iterable
-from datetime import date
 from pathlib import Path
 from threading import Event
 
 from rename_date import config
 from rename_date.models.rename_item import ItemStatus, RenameItem
+from rename_date.services import date_span
 from rename_date.services.validation import (
 	InvalidPatternError,
 	compile_pattern,
+	pattern_kind,
 	validate_output_template,
+	validate_range_output_template,
 )
 
 
@@ -27,12 +29,18 @@ class ScannerService:
 		output_template: str,
 		cancel_event: Event | None = None,
 		progress_callback: Callable[[int, int], None] | None = None,
+		range_output_template: str = config.DEFAULT_RANGE_OUTPUT_TEMPLATE,
 	) -> list[RenameItem]:
 		"""Scan targets and calculate collision-free rename destinations."""
 		if not patterns:
 			raise InvalidPatternError("at least one pattern is required")
-		compiled_patterns = [compile_pattern(pattern) for pattern in patterns]
+		validate_range_output_template(range_output_template)
 		validate_output_template(output_template)
+		compiled_patterns = [compile_pattern(pattern) for pattern in patterns]
+		ordered_patterns = sorted(
+			compiled_patterns,
+			key=lambda compiled: pattern_kind(compiled).value == "single",
+		)
 		files = self._collect_files(targets, cancel_event)
 		reservations: dict[Path, set[str]] = {}
 		results: list[RenameItem] = []
@@ -46,23 +54,28 @@ class ScannerService:
 				working_stem = source.stem
 				matched_any = False
 				invalid_date = False
-				for compiled in compiled_patterns:
+				for compiled in ordered_patterns:
 					matches = list(compiled.finditer(working_stem))
 					if not matches:
 						continue
 					matched_any = True
+					kind = pattern_kind(compiled)
 
 					try:
 						for match in matches:
-							year, month, day = self._date_parts(match)
-							date(year, month, day)
-					except (TypeError, ValueError):
+							date_span.parse_match(match, kind)
+					except ValueError:
 						invalid_date = True
 						break
 
 					def replace_match(match: re.Match[str]) -> str:
-						year, month, day = self._date_parts(match)
-						return self._render_template(output_template, year, month, day)
+						span = date_span.parse_match(match, kind)
+						template = (
+							range_output_template
+							if kind.value == "range"
+							else output_template
+						)
+						return date_span.render(span, template)
 
 					working_stem = compiled.sub(replace_match, working_stem)
 
@@ -198,19 +211,6 @@ class ScannerService:
 		except (AttributeError, OSError):
 			return False
 		return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
-
-	@staticmethod
-	def _date_parts(match: re.Match[str]) -> tuple[int, int, int]:
-		year, month, day = match.groups()
-		return int(year), int(month), int(day)
-
-	@staticmethod
-	def _render_template(template: str, year: int, month: int, day: int) -> str:
-		return (
-			template.replace("{Y}", f"{year:04d}")
-			.replace("{M}", f"{month:02d}")
-			.replace("{D}", f"{day:02d}")
-		)
 
 	@staticmethod
 	def _existing_names(parent: Path) -> set[str]:
