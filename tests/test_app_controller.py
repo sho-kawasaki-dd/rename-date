@@ -297,7 +297,20 @@ def make_controller(monkeypatch, tmp_path):
 		templates,
 		range_templates,
 	)
-	return controller, window, scanner, rename, undo, log, patterns, templates, pattern, template, item
+	return (
+		controller,
+		window,
+		scanner,
+		rename,
+		undo,
+		log,
+		patterns,
+		templates,
+		range_templates,
+		pattern,
+		template,
+		item,
+	)
 
 
 def test_preview_uses_services_and_updates_view(monkeypatch, tmp_path):
@@ -307,10 +320,27 @@ def test_preview_uses_services_and_updates_view(monkeypatch, tmp_path):
 
 	assert len(scanner.calls) == 1
 	assert scanner.calls[0][1] == [window.config_frame.selected_patterns[0].pattern]
+	assert scanner.calls[0][3] == "{Y}{M}{D}-{Y2}{M2}{D2}"
 	assert window.preview_frame.items
 	assert window.preview_frame.base_dir == tmp_path
 	assert window.action_frame.counts == (1, 0, 1)
 	assert window.action_frame.processing is False
+
+
+def test_preview_warns_without_range_template(monkeypatch, tmp_path):
+	controller, window, scanner, *_ = make_controller(monkeypatch, tmp_path)
+	warnings = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showwarning",
+		lambda *args, **kwargs: warnings.append(args),
+	)
+	window.config_frame.selected_range_template = None
+
+	controller._on_preview_request()
+
+	assert len(warnings) == 1
+	assert scanner.calls == []
 
 
 def test_preview_warns_without_required_selection(monkeypatch, tmp_path):
@@ -337,6 +367,7 @@ def test_execute_logs_pushes_history_and_rescans(monkeypatch, tmp_path):
 	assert len(log.rename_calls) == 1
 	assert len(undo.histories) == 1
 	assert len(scanner.calls) == 2
+	assert scanner.calls[-1][3] == "{Y}{M}{D}-{Y2}{M2}{D2}"
 	assert window.action_frame.processing is False
 
 
@@ -364,21 +395,49 @@ def test_undo_logs_new_session_id_and_rescans(monkeypatch, tmp_path):
 	assert len(log.undo_calls) == 2
 	assert log.undo_calls[0][1] != log.undo_calls[1][1]
 	assert len(scanner.calls) == 3
+	assert all(call[3] == "{Y}{M}{D}-{Y2}{M2}{D2}" for call in scanner.calls)
 
 
 def test_pattern_and_template_errors_are_reported(monkeypatch, tmp_path):
-	controller, window, _, _, _, _, patterns, templates, pattern, template, _ = make_controller(monkeypatch, tmp_path)
+	controller, window, _, _, _, _, patterns, templates, range_templates, pattern, template, _ = make_controller(monkeypatch, tmp_path)
 	errors = []
 	monkeypatch.setattr(controller_module.messagebox, "showerror", lambda *args, **kwargs: errors.append(args))
 	patterns.error = InvalidPatternError("bad pattern")
 	templates.error = InvalidTemplateError("bad template")
+	range_templates.error = InvalidTemplateError("bad range template")
+	range_template = OutputTemplateEntry(
+		"range default",
+		"{Y}{M}{D}-{Y2}{M2}{D2}",
+	)
 
 	controller._on_pattern_save(pattern)
 	controller._on_pattern_delete(pattern.name)
 	controller._on_template_save(template)
 	controller._on_template_delete(template.name)
+	controller._on_range_template_save(range_template)
+	controller._on_range_template_delete(range_template.name)
 
-	assert len(errors) == 4
+	assert len(errors) == 6
+
+
+def test_range_template_save_and_delete_update_config(monkeypatch, tmp_path):
+	controller, window, _, _, _, _, _, _, range_templates, _, _, _ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	replacement = OutputTemplateEntry(
+		"range replacement",
+		"{Y}{M}{D}-{Y2}{M2}{D2}",
+	)
+
+	controller._on_range_template_save(replacement)
+
+	assert replacement in range_templates.entries
+	assert window.config_frame.range_templates[-1] == replacement
+
+	controller._on_range_template_delete(replacement.name)
+
+	assert replacement not in range_templates.entries
 
 
 def test_busy_operations_are_ignored_and_cancel_sets_event(monkeypatch, tmp_path):

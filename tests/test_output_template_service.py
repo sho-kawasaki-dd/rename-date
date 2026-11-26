@@ -48,6 +48,22 @@ def test_save_rejects_invalid_templates(tmp_path, default_output_template):
 		service.save([OutputTemplateEntry("forbidden", "{Y}:{M}:{D}")])
 
 
+@pytest.mark.parametrize("placeholder", ["{Y2}", "{M2}", "{D2}"])
+def test_save_rejects_range_placeholders_in_single_template(
+	tmp_path,
+	placeholder,
+):
+	service = OutputTemplateService(tmp_path)
+
+	with pytest.raises(InvalidTemplateError):
+		service.save([
+			OutputTemplateEntry(
+				"range placeholder",
+				"{Y}{M}{D}" + placeholder,
+			)
+		])
+
+
 def test_broken_json_falls_back_to_default(tmp_path):
 	service = OutputTemplateService(tmp_path)
 	(tmp_path / "output_templates.json").write_text("{broken", encoding="utf-8")

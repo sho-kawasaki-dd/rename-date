@@ -301,3 +301,34 @@ def test_rejects_invalid_range_output_template(tmp_path):
             "{Y}{M}{D}",
             range_output_template="{Y}{M}{D}",
         )
+
+
+def test_range_patterns_keep_relative_order_as_stable_sort(tmp_path):
+    source = tmp_path / "(2024.12.20-25) - (2025.1.10-2025.1.15).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{1,2})\)",
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+        ],
+        "{Y}{M}{D}",
+        range_output_template=RANGE_TEMPLATE,
+    )
+
+    assert items[0].target_name == "20241220-1225 - 20250110-20250115.txt"
+
+
+def test_range_output_template_can_be_omitted(tmp_path):
+    source = tmp_path / "(2024.12.20-25).txt"
+    source.write_text("sample", encoding="utf-8")
+
+    items = ScannerService().scan(
+        [source],
+        [RANGE_PATTERN],
+        "{Y}{M}{D}",
+        Event(),
+    )
+
+    assert items[0].target_name == "20241220-1225.txt"

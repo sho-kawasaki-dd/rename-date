@@ -44,6 +44,31 @@ def test_save_rejects_invalid_patterns(tmp_path, default_pattern):
         service.save([PatternEntry("bad", "(2024)")])
 
 
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        r"(a)(b)(c)(d)",
+        r"(a)(b)(c)(d)(e)",
+        r"(a)(b)(c)(d)(e)(f)",
+    ],
+)
+def test_save_accepts_range_patterns_with_four_to_six_groups(tmp_path, pattern):
+    service = PatternService(tmp_path)
+
+    service.save([PatternEntry("range", pattern)])
+    entries = service.load()
+
+    assert entries == [PatternEntry("range", pattern)]
+
+
+@pytest.mark.parametrize("pattern", [r"(a)(b)", r"(a)(b)(c)(d)(e)(f)(g)"])
+def test_save_rejects_patterns_outside_three_to_six_groups(tmp_path, pattern):
+    service = PatternService(tmp_path)
+
+    with pytest.raises(InvalidPatternError):
+        service.save([PatternEntry("invalid", pattern)])
+
+
 def test_broken_json_falls_back_to_default(tmp_path):
     service = PatternService(tmp_path)
     (tmp_path / "patterns.json").write_text("{broken", encoding="utf-8")

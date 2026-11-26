@@ -107,6 +107,59 @@ def test_accepts_same_start_and_end(text, pattern):
 
 
 @pytest.mark.parametrize(
+    ("text", "pattern", "end_has_year"),
+    [
+        ("(2024.12.20-25)", r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{1,2})\)", False),
+        ("(2024.12.20-12.25)", r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{1,2})\.(\d{1,2})\)", False),
+        (
+            "(2024.12.20-2025.01.05)",
+            r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{4})\.(\d{1,2})\.(\d{1,2})\)",
+            True,
+        ),
+    ],
+)
+def test_range_end_has_year_matches_explicit_input(text, pattern, end_has_year):
+    span = parse(text, pattern)
+
+    assert span.end is not None
+    assert span.end_has_year is end_has_year
+
+
+@pytest.mark.parametrize(
+    ("text", "pattern"),
+    [
+        ("(2024.02.30)", r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)"),
+        ("(2024.13.01-02)", r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{1,2})\)"),
+    ],
+)
+def test_rejects_nonexistent_start_date(text, pattern):
+    with pytest.raises(ValueError):
+        parse(text, pattern)
+
+
+def test_rejects_missing_required_group():
+    compiled = compile_pattern(
+        r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{1,2})?\)"
+    )
+    match = compiled.search("(2024.12.20-)")
+    assert match is not None
+
+    with pytest.raises(ValueError):
+        parse_match(match, pattern_kind(compiled))
+
+
+def test_rejects_non_integer_required_group():
+    compiled = compile_pattern(
+        r"\((\d{4})\.(\d{1,2})\.(\d{1,2})-(.*)\)"
+    )
+    match = compiled.search("(2024.12.20-no)")
+    assert match is not None
+
+    with pytest.raises(ValueError):
+        parse_match(match, pattern_kind(compiled))
+
+
+@pytest.mark.parametrize(
     ("span", "template", "expected"),
     [
         (DateSpan(date(2024, 12, 20), None, False), "{Y}{M}{D}", "20241220"),

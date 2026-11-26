@@ -1,6 +1,6 @@
 # Project Guidelines — rename-date
 
-Windows 向け tkinter GUI アプリ。指定フォルダを再帰走査、またはドラッグ&ドロップされた個別ファイルを対象に、正規表現 `(YYYY.M.D)` 形式にマッチするファイル名を出力テンプレート（既定 `{Y}{M}{D}`）へ一括変換する。全仕様は [docs/rename-date開発計画書.md](../docs/rename-date開発計画書.md) を参照。このファイルには「必ず守るべき契約」と「頻繁に間違えやすい点」のみを記載する。
+Windows 向け tkinter GUI アプリ。指定フォルダを再帰走査、またはドラッグ&ドロップされた個別ファイルを対象に、正規表現で単日または期間をマッチし、単日テンプレート（既定 `{Y}{M}{D}`）または期間テンプレート（既定 `{Y}{M}{D}-{Y2}{M2}{D2}`）へ一括変換する。全仕様は [docs/rename-date開発計画書.md](../docs/rename-date開発計画書.md) を参照。このファイルには「必ず守るべき契約」と「頻繁に間違えやすい点」のみを記載する。
 
 ## 環境 & コマンド
 
@@ -13,18 +13,20 @@ Windows 向け tkinter GUI アプリ。指定フォルダを再帰走査、ま�
 
 ## アーキテクチャ（一方向依存）
 
-`main.py(SingleInstanceGuard)` → `views/`(tkinter/ttk + tkinterdnd2) → `controllers/app_controller.py` → `services/`(scanner, rename, undo, log, pattern) → `models/`(rename_item, execution_history, pattern_entry)
+`main.py(SingleInstanceGuard)` → `views/`(tkinter/ttk + tkinterdnd2) → `controllers/app_controller.py` → `services/`(scanner, rename, undo, log, pattern, output template, date span) → `models/`(rename_item, execution_history, pattern_entry, output_template_entry)
 
 - **Services 層は tkinter を import しない**（GUI なしでテスト可能な状態を維持）。
 - 配置は `src/rename_date/{models,services,controllers,views}`。
 
 ## 変更してはいけない契約（ドキュメント確認なしに変えない）
 
-- 正規表現は**年・月・日の3キャプチャグループ固定**。グループ数が3でない/コンパイル失敗時は `InvalidPatternError` を送出し走査しない。
+- 正規表現のキャプチャグループ数で種類を判定する。3は単日（Y/M/D）、4は期間（Y/M/D/D2）、5は期間（Y/M/D/M2/D2）、6は期間（Y/M/D/Y2/M2/D2）。グループ数が2・7以外、またはコンパイル失敗時は `InvalidPatternError` を送出し走査しない。
+- 適用順は期間パターンを単日パターンより先にする。期間同士・単日同士の相対順は一覧の表示順を保つ（安定ソート）。期間パターン変換後の文字列が後続の単日パターンに再マッチする場合があるため、併用時はパイプライン結果をプレビューで確認する。
+- 期間用テンプレートは `%APPDATA%\rename-date\config\range_output_templates.json` に保存する。既存の単日テンプレートは `output_templates.json` と別管理。期間テンプレートは `{Y}` `{M}` `{D}` `{Y2}` `{M2}` `{D2}` を各1回以上含むことが必須。`{Y2}` は元の名前に終了年がある場合だけ出力し、無ければ空文字。`{Y2}` の直後に区切り文字を置くテンプレートでは区切り文字が残る場合がある。
 - 置換対象は `Path.stem` のみ。拡張子は不可侵。
-- 1ファイル名中の**すべてのマッチ**を `re.sub` で置換。出力は選択中の `PatternEntry.output_template`（既定 `{Y}{M}{D}`、`{Y}`=4桁/`{M}`{D}`=2桁ゼロ埋め）に従って生成し、括弧は除去。テンプレートは `{Y}` `{M}` `{D}` を各1回以上含むことが必須（保存時に検証）。
-- 正規表現パターン＋出力テンプレートの組は「プリセット」として `%APPDATA%\rename-date\config\patterns.json` に永続化。GUI から選択・追加・編集・削除可能（最後の1件は削除不可）。
-- 日付妥当性は `datetime.date(y, m, d)` で検証。`ValueError` → `ItemStatus.INVALID_DATE` とし実行対象外（プレビューには表示するが実行しない）。
+- 1ファイル名中の**すべてのマッチ**を `re.sub` で置換。単日は `{Y}{M}{D}`、期間は `{Y}{M}{D}-{Y2}{M2}{D2}` を既定とする。単日は `{Y}`=4桁・`{M}`/`{D}`=2桁、期間は開始日・補完後の終了日を同じ桁数で描画し、括弧は除去する。
+- 正規表現パターンは `PatternEntry`（`name` + `pattern`）として `%APPDATA%\rename-date\config\patterns.json` に永続化。単日テンプレートは `OutputTemplateEntry`（`name` + `template`）として `output_templates.json` に、期間テンプレートも同じ型で `range_output_templates.json` に永続化。GUI から選択・追加・編集・削除可能（各プリセットで最後の1件は削除不可）。
+- 日付妥当性は `datetime.date(y, m, d)` で検証する。期間では終了日の省略を開始日から補い、月・年の繰り上げは数値比較で判定してから `date()` を生成する。終了年が明示された場合は終了日が開始日より前なら無効。`ValueError` → `ItemStatus.INVALID_DATE` とし実行対象外（プレビューには表示するが実行しない）。
 - 置換後は連続空白を1つに畳み前後をトリム。置換後 stem が元と同一なら結果リストから除外（非表示）。
 - 名前衝突は `_1`, `_2` … で自動回避。比較は大小文字を区別しない `casefold()`。解決した項目は `ItemStatus.RESOLVED_CONFLICT`。
 - 変更対象は**ファイルのみ**（フォルダ名は変更しない）。
@@ -57,7 +59,7 @@ Windows 向け tkinter GUI アプリ。指定フォルダを再帰走査、ま�
 ## テスト方針
 
 - Services 層カバレッジ目標 85%以上。ファイルシステムはモックせず `tmp_path` フィクスチャで実 I/O 検証。
-- 対応表: `test_scanner.py` / `test_renamer.py` / `test_undo.py` / `test_log.py` / `test_pattern_service.py`。
+- 対応表: `test_scanner.py` / `test_renamer.py` / `test_undo.py` / `test_log.py` / `test_pattern_service.py` / `test_output_template_service.py` / `test_validation.py` / `test_date_span.py` / `test_app_controller.py`。
 
 ## スコープ外（実装しない）
 

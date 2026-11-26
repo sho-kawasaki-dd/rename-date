@@ -1,10 +1,14 @@
 """Dialog for creating and editing output-template presets."""
 
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import ttk
 
 from rename_date.models.output_template_entry import OutputTemplateEntry
-from rename_date.services.validation import InvalidTemplateError, validate_output_template
+from rename_date.services.validation import (
+    InvalidTemplateError,
+    validate_output_template,
+)
 
 
 class OutputTemplateEditDialog(tk.Toplevel):
@@ -14,12 +18,16 @@ class OutputTemplateEditDialog(tk.Toplevel):
         self,
         parent: tk.Misc,
         initial: OutputTemplateEntry | None = None,
+        validator: Callable[[str], None] = validate_output_template,
+        title: str = "Output template preset",
+        description: str = "",
     ) -> None:
         super().__init__(parent)
         self.result: OutputTemplateEntry | None = None
         self._editing = initial is not None
+        self._validator = validator
 
-        self.title("Output template preset")
+        self.title(title)
         self.transient(parent.winfo_toplevel())
         self.protocol("WM_DELETE_WINDOW", self._cancel)
 
@@ -40,11 +48,19 @@ class OutputTemplateEditDialog(tk.Toplevel):
         template_entry = ttk.Entry(content, textvariable=self._template_var, width=40)
         template_entry.grid(row=1, column=1, pady=(0, 8), sticky="ew")
 
+        if description:
+            ttk.Label(
+                content,
+                text=description,
+                wraplength=430,
+                justify="left",
+            ).grid(row=2, column=0, columnspan=2, pady=(0, 8), sticky="w")
+
         self._error_label = ttk.Label(content, foreground="red")
-        self._error_label.grid(row=2, column=0, columnspan=2, sticky="w")
+        self._error_label.grid(row=3, column=0, columnspan=2, sticky="w")
 
         buttons = ttk.Frame(content)
-        buttons.grid(row=3, column=0, columnspan=2, pady=(12, 0), sticky="e")
+        buttons.grid(row=4, column=0, columnspan=2, pady=(12, 0), sticky="e")
         ttk.Button(buttons, text="OK", command=self._save).grid(row=0, column=0, padx=(0, 8))
         ttk.Button(buttons, text="Cancel", command=self._cancel).grid(row=0, column=1)
 
@@ -57,7 +73,7 @@ class OutputTemplateEditDialog(tk.Toplevel):
         name = self._name_var.get()
         template = self._template_var.get()
         try:
-            validate_output_template(template)
+            self._validator(template)
         except InvalidTemplateError as error:
             self._error_label.configure(text=str(error))
             return

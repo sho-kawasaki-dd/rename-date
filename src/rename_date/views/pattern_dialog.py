@@ -40,11 +40,16 @@ class PatternEditDialog(tk.Toplevel):
         pattern_entry = ttk.Entry(content, textvariable=self._pattern_var, width=40)
         pattern_entry.grid(row=1, column=1, pady=(0, 8), sticky="ew")
 
+        ttk.Label(
+            content,
+            text="キャプチャグループ数: 3＝単日、4〜6＝期間",
+        ).grid(row=2, column=0, columnspan=2, pady=(0, 8), sticky="w")
+
         self._error_label = ttk.Label(content, foreground="red")
-        self._error_label.grid(row=2, column=0, columnspan=2, sticky="w")
+        self._error_label.grid(row=3, column=0, columnspan=2, sticky="w")
 
         buttons = ttk.Frame(content)
-        buttons.grid(row=3, column=0, columnspan=2, pady=(12, 0), sticky="e")
+        buttons.grid(row=4, column=0, columnspan=2, pady=(12, 0), sticky="e")
         ttk.Button(buttons, text="OK", command=self._save).grid(row=0, column=0, padx=(0, 8))
         ttk.Button(buttons, text="Cancel", command=self._cancel).grid(row=0, column=1)
 

@@ -9,6 +9,12 @@ from tkinterdnd2 import DND_FILES
 
 from rename_date.models.output_template_entry import OutputTemplateEntry
 from rename_date.models.pattern_entry import PatternEntry
+from rename_date.services.validation import (
+	compile_pattern,
+	pattern_kind,
+	validate_range_output_template,
+	PatternKind,
+)
 from rename_date.views.output_template_dialog import OutputTemplateEditDialog
 from rename_date.views.pattern_dialog import PatternEditDialog
 
@@ -108,14 +114,29 @@ class ConfigFrame(ttk.Frame):
 		template_section.grid(row=1, column=1, padx=(3, 6), pady=3, sticky="nsew")
 		template_section.columnconfigure(0, weight=1)
 
-		self.template_combobox = ttk.Combobox(template_section, state="readonly")
-		self.template_combobox.grid(row=0, column=0, sticky="ew")
+		single_frame = ttk.Frame(template_section)
+		single_frame.grid(row=0, column=0, sticky="ew")
+		single_frame.columnconfigure(0, weight=1)
+		ttk.Label(single_frame, text="単日").grid(row=0, column=0, sticky="w")
+		self.template_combobox = ttk.Combobox(single_frame, state="readonly")
+		self.template_combobox.grid(row=1, column=0, sticky="ew")
+		single_buttons = ttk.Frame(single_frame)
+		single_buttons.grid(row=2, column=0, pady=(3, 5), sticky="e")
+		ttk.Button(single_buttons, text="New", command=self._new_template).grid(row=0, column=0, padx=(0, 2))
+		ttk.Button(single_buttons, text="Edit", command=self._edit_template).grid(row=0, column=1, padx=2)
+		ttk.Button(single_buttons, text="Delete", command=self._delete_template).grid(row=0, column=2, padx=(2, 0))
 
-		buttons = ttk.Frame(template_section)
-		buttons.grid(row=1, column=0, pady=(8, 0), sticky="e")
-		ttk.Button(buttons, text="New", command=self._new_template).grid(row=0, column=0, padx=(0, 4))
-		ttk.Button(buttons, text="Edit", command=self._edit_template).grid(row=0, column=1, padx=4)
-		ttk.Button(buttons, text="Delete", command=self._delete_template).grid(row=0, column=2, padx=(4, 0))
+		range_frame = ttk.Frame(template_section)
+		range_frame.grid(row=1, column=0, sticky="ew")
+		range_frame.columnconfigure(0, weight=1)
+		ttk.Label(range_frame, text="期間").grid(row=0, column=0, sticky="w")
+		self.range_template_combobox = ttk.Combobox(range_frame, state="readonly")
+		self.range_template_combobox.grid(row=1, column=0, sticky="ew")
+		range_buttons = ttk.Frame(range_frame)
+		range_buttons.grid(row=2, column=0, pady=(3, 0), sticky="e")
+		ttk.Button(range_buttons, text="New", command=self._new_range_template).grid(row=0, column=0, padx=(0, 2))
+		ttk.Button(range_buttons, text="Edit", command=self._edit_range_template).grid(row=0, column=1, padx=2)
+		ttk.Button(range_buttons, text="Delete", command=self._delete_range_template).grid(row=0, column=2, padx=(2, 0))
 
 		ttk.Button(self, text="Refresh preview", command=self._request_preview).grid(
 			row=2, column=0, columnspan=2, padx=6, pady=(3, 6), sticky="e"
@@ -156,7 +177,12 @@ class ConfigFrame(ttk.Frame):
 		self._patterns = list(entries)
 		self.pattern_listbox.delete(0, tk.END)
 		for entry in self._patterns:
-			self.pattern_listbox.insert(tk.END, entry.name)
+			try:
+				kind = pattern_kind(compile_pattern(entry.pattern))
+			except ValueError:
+				kind = PatternKind.SINGLE
+			label = "[期間]" if kind is PatternKind.RANGE else "[単日]"
+			self.pattern_listbox.insert(tk.END, f"{label} {entry.name}")
 		if self._patterns:
 			self.pattern_listbox.selection_set(0)
 
@@ -187,11 +213,21 @@ class ConfigFrame(ttk.Frame):
 		"""Replace the range output-template choices."""
 
 		self._range_templates = list(entries)
+		self.range_template_combobox.configure(
+			values=[entry.name for entry in self._range_templates]
+		)
+		if self._range_templates:
+			self.range_template_combobox.current(0)
+		else:
+			self.range_template_combobox.set("")
 
 	def get_selected_range_template(self) -> OutputTemplateEntry | None:
-		"""Return the first range output template until the range UI is opened."""
+		"""Return the selected range output template, if one exists."""
 
-		return self._range_templates[0] if self._range_templates else None
+		index = self.range_template_combobox.current()
+		if index < 0 or index >= len(self._range_templates):
+			return None
+		return self._range_templates[index]
 
 	def _choose_folder(self) -> None:
 		selected = filedialog.askdirectory(parent=self.winfo_toplevel())
@@ -285,3 +321,42 @@ class ConfigFrame(ttk.Frame):
 			parent=self.winfo_toplevel(),
 		):
 			self._on_template_delete(entry.name)
+
+	def _new_range_template(self) -> None:
+		dialog = OutputTemplateEditDialog(
+			self,
+			initial=None,
+			validator=validate_range_output_template,
+			title="期間用テンプレートプリセット",
+			description="利用可能: {Y}{M}{D}{Y2}{M2}{D2}。{Y2} は元に終了側の年がある場合だけ出力します。区切り文字は {Y2} の直後に置かない形を推奨します。",
+		)
+		self.wait_window(dialog)
+		if dialog.result is not None:
+			self._on_range_template_save(dialog.result)
+
+	def _edit_range_template(self) -> None:
+		index = self.range_template_combobox.current()
+		if index < 0 or index >= len(self._range_templates):
+			return
+		dialog = OutputTemplateEditDialog(
+			self,
+			initial=self._range_templates[index],
+			validator=validate_range_output_template,
+			title="期間用テンプレートプリセット",
+			description="利用可能: {Y}{M}{D}{Y2}{M2}{D2}。{Y2} は元に終了側の年がある場合だけ出力します。区切り文字は {Y2} の直後に置かない形を推奨します。",
+		)
+		self.wait_window(dialog)
+		if dialog.result is not None:
+			self._on_range_template_save(dialog.result)
+
+	def _delete_range_template(self) -> None:
+		index = self.range_template_combobox.current()
+		if index < 0 or index >= len(self._range_templates):
+			return
+		entry = self._range_templates[index]
+		if messagebox.askyesno(
+			"期間テンプレートを削除",
+			f'期間テンプレート "{entry.name}" を削除しますか？',
+			parent=self.winfo_toplevel(),
+		):
+			self._on_range_template_delete(entry.name)
