@@ -86,8 +86,8 @@
 
 ### 1. 設定値（`config.py`）
 
-- [ ] `DEFAULT_RANGE_TEMPLATE_NAME = "既定 YYYYMMDD-[YYYY]MMDD"` を追加する。
-- [ ] `DEFAULT_RANGE_OUTPUT_TEMPLATE = "{Y}{M}{D}-{Y2}{M2}{D2}"` を追加する。
+- [x] `DEFAULT_RANGE_TEMPLATE_NAME = "既定 YYYYMMDD-[YYYY]MMDD"` を追加する。
+- [x] `DEFAULT_RANGE_OUTPUT_TEMPLATE = "{Y}{M}{D}-{Y2}{M2}{D2}"` を追加する。
 
 ### 2. 検証（`services/validation.py`）
 
