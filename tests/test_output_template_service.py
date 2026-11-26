@@ -6,6 +6,7 @@ import pytest
 
 from rename_date import config
 from rename_date.models.output_template_entry import OutputTemplateEntry
+from rename_date.services.preset_io import PresetIOError, PresetIOReason
 from rename_date.services.output_template_service import (
 	OutputTemplateService,
 	RangeOutputTemplateService,
@@ -169,3 +170,59 @@ def test_range_template_uses_separate_file(tmp_path):
 
 	assert (tmp_path / "output_templates.json").exists()
 	assert (tmp_path / "range_output_templates.json").exists()
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}-{M}-{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D} - {Y2}{M2}{D2}"),
+	],
+)
+def test_output_template_json_round_trip_with_bom(
+	tmp_path,
+	service_type,
+	template,
+):
+	source_service = service_type(tmp_path / "source")
+	destination_service = service_type(tmp_path / "destination")
+	existing = OutputTemplateEntry("existing", template)
+	entries = [
+		OutputTemplateEntry("既定以外", template),
+		OutputTemplateEntry("second", template),
+	]
+	source_service.save(entries)
+	destination_service.save([existing])
+	export_path = tmp_path / "export.json"
+	source_service.export_to_json(export_path)
+	exported_bytes = export_path.read_bytes()
+
+	assert not exported_bytes.startswith(b"\xef\xbb\xbf")
+	import_path = tmp_path / "import.json"
+	import_path.write_bytes(b"\xef\xbb\xbf" + exported_bytes)
+
+	assert destination_service.import_from_json(import_path) == [existing, *entries]
+	assert not destination_service.file_path.read_bytes().startswith(b"\xef\xbb\xbf")
+
+
+def test_single_and_range_templates_cannot_be_imported_by_other_service(tmp_path):
+	single_service = OutputTemplateService(tmp_path / "single")
+	range_service = RangeOutputTemplateService(tmp_path / "range")
+	single_service.save([OutputTemplateEntry("single", "{Y}{M}{D}")])
+	range_service.save(
+		[OutputTemplateEntry("range", "{Y}{M}{D}-{Y2}{M2}{D2}")]
+	)
+	single_export = tmp_path / "single.json"
+	range_export = tmp_path / "range.json"
+	single_service.export_to_json(single_export)
+	range_service.export_to_json(range_export)
+
+	with pytest.raises(PresetIOError) as single_error:
+		range_service.import_from_json(single_export)
+	with pytest.raises(PresetIOError) as range_error:
+		single_service.import_from_json(range_export)
+
+	assert single_error.value.reason is PresetIOReason.VALIDATION
+	assert single_error.value.name == "single"
+	assert range_error.value.reason is PresetIOReason.VALIDATION
+	assert range_error.value.name == "range"

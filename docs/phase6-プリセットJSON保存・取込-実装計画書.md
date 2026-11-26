@@ -41,11 +41,11 @@
 
 ### 1. Services：JSON入出力
 
-- [ ] [PatternService](../src/rename_date/services/pattern_service.py) と [OutputTemplateService](../src/rename_date/services/output_template_service.py) に任意のパスへの書出し・取込を追加する。期間用サービスは既存のサブクラス構造を利用し、期間用の検証を維持する。書出しは `encoding="utf-8"`（BOMなし）、取込は `encoding="utf-8-sig"` で読み込む。
-- [ ] 既存のJSON変換・検証・一時ファイルによる保存処理を再利用する。取込のために項目ごとの `upsert()` は呼ばず、取込データと追加後の一覧を検証してから1回保存する。Services層に `tkinter` や新しい依存パッケージを追加しない。
-- [ ] [validation.py](../src/rename_date/services/validation.py) の既存英語メッセージおよび既存テストとの互換性を維持しつつ、プリセット入出力用の構造化エラー（理由種別・該当項目名・配列位置・詳細を持つ `ValueError` サブクラス等）をServices層に用意し、重複名や検証失敗の対象項目を呼び出し元へ伝えられるようにする。
-- [ ] JSON入出力では、外部ファイルも現在の内部設定も、失敗を呼び出し元へ返す読込経路を使う。初回起動や破損した内部設定から既定値を復元する既存の `load()` の挙動は変えない。
-- [ ] 内部設定の3ファイル名を [config.py](../src/rename_date/config.py) 等の共通定数に集約し、JSON入出力の前に指定パスが `self.base_dir` 配下の内部設定3ファイルのいずれかでないことを確認する。未作成ファイルやシンボリックリンク、Windowsの大文字・小文字の違い、相対パスを含めて安全に判定できるよう、双方に `Path.resolve(strict=False)` と `os.path.normcase()` を適用して比較する。
+- [x] [PatternService](../src/rename_date/services/pattern_service.py) と [OutputTemplateService](../src/rename_date/services/output_template_service.py) に任意のパスへの書出し・取込を追加する。期間用サービスは既存のサブクラス構造を利用し、期間用の検証を維持する。書出しは `encoding="utf-8"`（BOMなし）、取込は `encoding="utf-8-sig"` で読み込む。
+- [x] 既存のJSON変換・検証・一時ファイルによる保存処理を再利用する。取込のために項目ごとの `upsert()` は呼ばず、取込データと追加後の一覧を検証してから1回保存する。Services層に `tkinter` や新しい依存パッケージを追加しない。
+- [x] [validation.py](../src/rename_date/services/validation.py) の既存英語メッセージおよび既存テストとの互換性を維持しつつ、プリセット入出力用の構造化エラー（理由種別・該当項目名・配列位置・詳細を持つ `ValueError` サブクラス等）をServices層に用意し、重複名や検証失敗の対象項目を呼び出し元へ伝えられるようにする。
+- [x] JSON入出力では、外部ファイルも現在の内部設定も、失敗を呼び出し元へ返す読込経路を使う。初回起動や破損した内部設定から既定値を復元する既存の `load()` の挙動は変えない。
+- [x] 内部設定の3ファイル名を [config.py](../src/rename_date/config.py) 等の共通定数に集約し、JSON入出力の前に指定パスが `self.base_dir` 配下の内部設定3ファイルのいずれかでないことを確認する。未作成ファイルやシンボリックリンク、Windowsの大文字・小文字の違い、相対パスを含めて安全に判定できるよう、双方に `Path.resolve(strict=False)` と `os.path.normcase()` を適用して比較する。
 
 ### 2. Views・Controller：操作の接続
 
