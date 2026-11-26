@@ -56,10 +56,10 @@
 
 ### 3. 自動テスト
 
-- [ ] [test_pattern_service.py](../tests/test_pattern_service.py) と [test_output_template_service.py](../tests/test_output_template_service.py) で、3種類の保存→取込、名前・本文・順序の保持、BOM付きUTF-8の取込とBOMなし出力、単日用と期間用の取違えの拒否を `tmp_path` への実I/Oで検証する。
-- [ ] 不正JSON・空の配列・形式不一致・検証エラー・同名（構造化エラーに該当項目名が含まれること）を拒否し、正しい項目の後ろに不正項目がある場合でも、取込元と既存設定がバイト単位で変化しないことを検証する。内部設定ファイルが破損または未存在の状態で保存・取込を呼んだ場合に失敗し、既定値で上書き・再作成されないこと、内部設定3ファイルパスの拒否（未作成・大文字小文字違い・相対パス含む）、および外部ファイルの置換に失敗した場合に元の内容が残ることも確認する。
-- [ ] [test_app_controller.py](../tests/test_app_controller.py) で、取込成功時の対象一覧の更新とプレビュー無効化（`clear()` 呼び出し・件数リセット・再プレビュー案内）、保存時の上書き確認と取消、キャンセル・エラー・処理中の取込で状態を変えないこと、取込後にUndoを実行しても古いプレビューが復活せずステータス・進捗が完了状態になること、および選択復元ヘルパー（複数選択・未選択の維持）を確認する。
-- [ ] `uv run pytest tests\test_pattern_service.py tests\test_output_template_service.py tests\test_app_controller.py` で対象テストを実行し、その後 `uv run pytest --cov=src/rename_date --cov-report=term-missing` で全体の回帰とServices層の集計カバレッジ85%以上を確認する。変更箇所の静的解析で新規エラーがないことを確認する。
+- [x] [test_pattern_service.py](../tests/test_pattern_service.py) と [test_output_template_service.py](../tests/test_output_template_service.py) で、3種類の保存→取込、名前・本文・順序の保持、BOM付きUTF-8の取込とBOMなし出力、単日用と期間用の取違えの拒否を `tmp_path` への実I/Oで検証する。
+- [x] 不正JSON・空の配列・形式不一致・検証エラー・同名（構造化エラーに該当項目名が含まれること）を拒否し、正しい項目の後ろに不正項目がある場合でも、取込元と既存設定がバイト単位で変化しないことを検証する。内部設定ファイルが破損または未存在の状態で保存・取込を呼んだ場合に失敗し、既定値で上書き・再作成されないこと、内部設定3ファイルパスの拒否（未作成・大文字小文字違い・相対パス含む）、および外部ファイルの置換に失敗した場合に元の内容が残ることも確認する。
+- [x] [test_app_controller.py](../tests/test_app_controller.py) で、取込成功時の対象一覧の更新とプレビュー無効化（`clear()` 呼び出し・件数リセット・再プレビュー案内）、保存時の上書き確認と取消、キャンセル・エラー・処理中の取込で状態を変えないこと、取込後にUndoを実行しても古いプレビューが復活せずステータス・進捗が完了状態になること、および選択復元ヘルパー（複数選択・未選択の維持）を確認する。
+- [x] `uv run pytest tests\test_pattern_service.py tests\test_output_template_service.py tests\test_app_controller.py` で対象テストを実行し、その後 `uv run pytest --cov=src/rename_date --cov-report=term-missing` で全体の回帰とServices層の集計カバレッジ85%以上を確認する。変更箇所の静的解析で新規エラーがないことを確認する。
 
 ### 4. ドキュメント
 

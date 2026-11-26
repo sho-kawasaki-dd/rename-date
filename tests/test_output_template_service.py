@@ -226,3 +226,152 @@ def test_single_and_range_templates_cannot_be_imported_by_other_service(tmp_path
 	assert single_error.value.name == "single"
 	assert range_error.value.reason is PresetIOReason.VALIDATION
 	assert range_error.value.name == "range"
+
+
+@pytest.mark.parametrize(
+	("payload", "reason", "name", "index"),
+	[
+		("{broken", PresetIOReason.INVALID_JSON, None, None),
+		("[]", PresetIOReason.INVALID_FORMAT, None, None),
+		(
+			'[{"name":"bad","template":3}]',
+			PresetIOReason.INVALID_FORMAT,
+			"bad",
+			0,
+		),
+		(
+			'[{"name":"bad","template":"{Y}{M}"}]',
+			PresetIOReason.VALIDATION,
+			"bad",
+			0,
+		),
+		(
+			'[{"name":"duplicate","template":"{Y}{M}{D}"},'
+			'{"name":"duplicate","template":"{Y}{M}{D}"}]',
+			PresetIOReason.DUPLICATE_NAME,
+			"duplicate",
+			1,
+		),
+	],
+)
+@pytest.mark.parametrize(
+	("service_type", "valid_template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+	],
+)
+def test_import_rejects_malformed_presets_without_changing_either_file(
+	tmp_path,
+	payload,
+	reason,
+	name,
+	index,
+	service_type,
+	valid_template,
+):
+	service = service_type(tmp_path / "config")
+	service.save([OutputTemplateEntry("existing", valid_template)])
+	original_config = service.file_path.read_bytes()
+	import_path = tmp_path / "invalid.json"
+	if reason is PresetIOReason.DUPLICATE_NAME:
+		payload = json.dumps(
+			[
+				{"name": "duplicate", "template": valid_template},
+				{"name": "duplicate", "template": valid_template},
+			]
+		)
+	import_path.write_text(payload, encoding="utf-8")
+	original_import = import_path.read_bytes()
+
+	with pytest.raises(PresetIOError) as error:
+		service.import_from_json(import_path)
+
+	assert error.value.reason is reason
+	assert error.value.name == name
+	assert error.value.index == index
+	assert service.file_path.read_bytes() == original_config
+	assert import_path.read_bytes() == original_import
+
+
+@pytest.mark.parametrize("operation", ["export", "import"])
+@pytest.mark.parametrize("storage_state", ["missing", "corrupt"])
+@pytest.mark.parametrize(
+	("service_type", "valid_template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+	],
+)
+def test_json_operations_do_not_restore_missing_or_corrupt_internal_storage(
+	tmp_path,
+	operation,
+	storage_state,
+	service_type,
+	valid_template,
+):
+	service = service_type(tmp_path / "config")
+	if storage_state == "corrupt":
+		service.base_dir.mkdir(parents=True)
+		service.file_path.write_bytes(b"{broken")
+	original_config = (
+		service.file_path.read_bytes() if service.file_path.exists() else None
+	)
+	import_path = tmp_path / "valid.json"
+	import_path.write_text(
+		json.dumps(
+			[{"name": "custom", "template": valid_template}],
+		),
+		encoding="utf-8",
+	)
+
+	with pytest.raises((FileNotFoundError, ValueError)):
+		if operation == "export":
+			service.export_to_json(tmp_path / "export.json")
+		else:
+			service.import_from_json(import_path)
+
+	if original_config is None:
+		assert not service.file_path.exists()
+	else:
+		assert service.file_path.read_bytes() == original_config
+
+
+@pytest.mark.parametrize(
+	("service_type", "valid_template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+	],
+)
+def test_late_invalid_import_entry_preserves_source_and_internal_files(
+	tmp_path,
+	service_type,
+	valid_template,
+):
+	service = service_type(tmp_path / "config")
+	service.save([OutputTemplateEntry("existing", valid_template)])
+	original_config = service.file_path.read_bytes()
+	invalid_template = (
+		"{Y}{M}" if service_type is OutputTemplateService else "{Y}{M}{D}"
+	)
+	import_path = tmp_path / "late-invalid.json"
+	import_path.write_text(
+		json.dumps(
+			[
+				{"name": "valid", "template": valid_template},
+				{"name": "invalid", "template": invalid_template},
+			]
+		),
+		encoding="utf-8",
+	)
+	original_import = import_path.read_bytes()
+
+	with pytest.raises(PresetIOError) as error:
+		service.import_from_json(import_path)
+
+	assert error.value.reason is PresetIOReason.VALIDATION
+	assert error.value.name == "invalid"
+	assert error.value.index == 1
+	assert service.file_path.read_bytes() == original_config
+	assert import_path.read_bytes() == original_import

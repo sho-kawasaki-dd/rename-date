@@ -25,17 +25,50 @@ class FakeConfigFrame:
 		self.range_templates = []
 
 	def set_patterns(self, entries, *, preserve_selection=False):
+		selected_names = (
+			{entry.name for entry in self.selected_patterns}
+			if preserve_selection
+			else set()
+		)
 		self.patterns = list(entries)
+		if preserve_selection:
+			self.selected_patterns = [
+				entry for entry in self.patterns if entry.name in selected_names
+			]
+		else:
+			self.selected_patterns = self.patterns[:1]
 
 	def set_templates(self, entries, *, preserve_selection=False):
+		selected_name = (
+			self.selected_template.name
+			if preserve_selection and self.selected_template is not None
+			else None
+		)
 		self.templates = list(entries)
-		if self.selected_template is None and self.templates:
-			self.selected_template = self.templates[0]
+		if preserve_selection:
+			self.selected_template = next(
+				(entry for entry in self.templates if entry.name == selected_name),
+				None,
+			)
+		else:
+			self.selected_template = self.templates[0] if self.templates else None
 
 	def set_range_templates(self, entries, *, preserve_selection=False):
+		selected_name = (
+			self.selected_range_template.name
+			if preserve_selection and self.selected_range_template is not None
+			else None
+		)
 		self.range_templates = list(entries)
-		if self.selected_range_template is None and self.range_templates:
-			self.selected_range_template = self.range_templates[0]
+		if preserve_selection:
+			self.selected_range_template = next(
+				(entry for entry in self.range_templates if entry.name == selected_name),
+				None,
+			)
+		else:
+			self.selected_range_template = (
+				self.range_templates[0] if self.range_templates else None
+			)
 
 	def get_preset_count(self, kind):
 		return {
@@ -127,8 +160,8 @@ class FakeWindow:
 		self.protocols = {}
 		self.destroyed = False
 		self.preset_callbacks = {}
-		self.export_path = None
-		self.import_path = None
+		self.export_path: Path | None = None
+		self.import_path: Path | None = None
 		self.export_path_requests = []
 		self.import_path_requests = []
 
@@ -169,7 +202,7 @@ class ImmediateThread:
 class FakePatternService:
 	def __init__(self, entries):
 		self.entries = list(entries)
-		self.error = None
+		self.error: Exception | None = None
 		self.base_dir = Path(".")
 		self.export_calls = []
 		self.import_entries = []
@@ -207,7 +240,15 @@ class FakePatternService:
 class FakeTemplateService:
 	def __init__(self, entries):
 		self.entries = list(entries)
-		self.error = None
+		self.error: Exception | None = None
+		self.import_entries = []
+		self.base_dir = Path(".")
+
+	def import_from_json(self, path):
+		if self.error:
+			raise self.error
+		self.entries.extend(self.import_entries)
+		return list(self.entries)
 
 	def load(self):
 		return list(self.entries)
@@ -561,6 +602,63 @@ def test_import_updates_presets_and_invalidates_preview(monkeypatch, tmp_path):
 	assert "1件取り込みました" in notices[0][1]
 
 
+@pytest.mark.parametrize(
+	"kind",
+	["pattern", "single_template", "range_template"],
+)
+def test_import_preserves_existing_selection_by_name(
+	monkeypatch,
+	tmp_path,
+	kind,
+):
+	controller, window, _, _, _, _, patterns, templates, range_templates, *_ = (
+		make_controller(monkeypatch, tmp_path)
+	)
+	window.import_path = tmp_path / "presets.json"
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: None,
+	)
+	added_pattern = PatternEntry("added pattern", r"(\d{4})(\d{2})(\d{2})")
+	added_template = OutputTemplateEntry("added template", "{Y}{M}{D}")
+
+	if kind == "pattern":
+		patterns.import_entries = [added_pattern]
+		selected_name = patterns.entries[0].name
+	elif kind == "single_template":
+		templates.import_entries = [added_template]
+		selected_name = templates.entries[0].name
+	else:
+		range_templates.import_entries = [
+			OutputTemplateEntry(
+				"added range",
+				"{Y}{M}{D}-{Y2}{M2}{D2}",
+			)
+		]
+		selected_name = range_templates.entries[0].name
+
+	controller._on_preset_import(kind)
+
+	if kind == "pattern":
+		assert [entry.name for entry in window.config_frame.selected_patterns] == [
+			selected_name
+		]
+		assert added_pattern not in window.config_frame.selected_patterns
+	elif kind == "single_template":
+		selected_template = window.config_frame.get_selected_template()
+		assert selected_template is not None
+		assert selected_template.name == selected_name
+		assert added_template != selected_template
+	else:
+		selected_range_template = (
+			window.config_frame.get_selected_range_template()
+		)
+		assert selected_range_template is not None
+		assert selected_range_template.name == selected_name
+		assert selected_range_template.name != "added range"
+
+
 def test_import_is_blocked_before_open_dialog_while_processing(monkeypatch, tmp_path):
 	controller, window, *_ = make_controller(monkeypatch, tmp_path)
 	warnings = []
@@ -592,6 +690,68 @@ def test_cancelled_import_does_not_change_preview(monkeypatch, tmp_path):
 	assert controller._last_scan_params == scan_params
 
 
+def test_failed_import_does_not_change_preview_or_selection(monkeypatch, tmp_path):
+	controller, window, scanner, _, _, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	controller._on_preview_request()
+	preview_items = list(window.preview_frame.items)
+	scan_params = controller._last_scan_params
+	selected_patterns = list(window.config_frame.selected_patterns)
+	counts = window.action_frame.counts
+	window.import_path = tmp_path / "invalid.json"
+	patterns.error = ValueError("invalid preset")
+	errors = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showerror",
+		lambda *args, **kwargs: errors.append(args),
+	)
+
+	controller._on_preset_import("pattern")
+
+	assert len(scanner.calls) == 1
+	assert window.preview_frame.items == preview_items
+	assert controller._last_scan_params == scan_params
+	assert window.config_frame.selected_patterns == selected_patterns
+	assert window.action_frame.counts == counts
+	assert len(errors) == 1
+
+
+def test_undo_after_import_does_not_restore_stale_preview(monkeypatch, tmp_path):
+	controller, window, scanner, _, undo, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	controller._on_preview_request()
+	old_items = list(controller._last_items)
+	patterns.import_entries = [
+		PatternEntry("imported", r"(\d{4})-(\d{2})-(\d{2})")
+	]
+	window.import_path = tmp_path / "patterns.json"
+	undo.histories = [ExecutionHistory(items=old_items)]
+	undo.restored_items = old_items
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: None,
+	)
+	controller._on_preset_import("pattern")
+
+	controller._on_undo()
+
+	assert len(scanner.calls) == 1
+	assert window.preview_frame.items == []
+	assert controller._last_items == []
+	assert controller._last_scan_params is None
+	assert window.action_frame.counts == (0, 0, 0)
+	assert window.action_frame.processing is False
+	assert window.action_frame.progress == 100
+	assert window.action_frame.status == "Undoが完了しました"
+	assert controller._busy is False
+
+
 def test_export_prompts_before_overwriting_existing_external_file(
 	monkeypatch,
 	tmp_path,
@@ -615,6 +775,34 @@ def test_export_prompts_before_overwriting_existing_external_file(
 	assert len(questions) == 1
 	assert patterns.export_calls == []
 	assert target.read_text(encoding="utf-8") == "keep"
+
+
+def test_export_writes_after_overwrite_is_confirmed(monkeypatch, tmp_path):
+	controller, window, _, _, _, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	target = tmp_path / "presets.json"
+	target.write_text("existing", encoding="utf-8")
+	window.export_path = target
+	questions = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"askyesno",
+		lambda *args, **kwargs: questions.append(args) or True,
+	)
+	notices = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: notices.append(args),
+	)
+
+	controller._on_preset_export("pattern")
+
+	assert len(questions) == 1
+	assert patterns.export_calls == [target]
+	assert len(notices) == 1
 
 
 def test_export_rejects_internal_config_path_before_overwrite_prompt(

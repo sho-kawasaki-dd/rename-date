@@ -199,6 +199,106 @@ def test_import_rejects_late_invalid_entry_without_changing_either_file(
     assert import_path.read_bytes() == imported_bytes
 
 
+@pytest.mark.parametrize(
+    ("payload", "reason", "name", "index"),
+    [
+        ("{broken", PresetIOReason.INVALID_JSON, None, None),
+        ("[]", PresetIOReason.INVALID_FORMAT, None, None),
+        (
+            '[{"name":"bad","pattern":3}]',
+            PresetIOReason.INVALID_FORMAT,
+            "bad",
+            0,
+        ),
+        (
+            '[{"name":"bad","pattern":"(\\\\d{4})"}]',
+            PresetIOReason.VALIDATION,
+            "bad",
+            0,
+        ),
+    ],
+)
+def test_import_rejects_invalid_json_without_changing_either_file(
+    tmp_path,
+    default_pattern,
+    payload,
+    reason,
+    name,
+    index,
+):
+    service = PatternService(tmp_path / "config")
+    service.save([default_pattern])
+    original_config = service.file_path.read_bytes()
+    import_path = tmp_path / "invalid.json"
+    import_path.write_text(payload, encoding="utf-8")
+    original_import = import_path.read_bytes()
+
+    with pytest.raises(PresetIOError) as error:
+        service.import_from_json(import_path)
+
+    assert error.value.reason is reason
+    assert error.value.name == name
+    assert error.value.index == index
+    assert service.file_path.read_bytes() == original_config
+    assert import_path.read_bytes() == original_import
+
+
+@pytest.mark.parametrize("operation", ["export", "import"])
+@pytest.mark.parametrize("storage_state", ["missing", "corrupt"])
+def test_json_operations_do_not_restore_missing_or_corrupt_internal_storage(
+    tmp_path,
+    operation,
+    storage_state,
+):
+    service = PatternService(tmp_path / "config")
+    if storage_state == "corrupt":
+        service.base_dir.mkdir(parents=True)
+        service.file_path.write_bytes(b"{broken")
+    original_config = (
+        service.file_path.read_bytes() if service.file_path.exists() else None
+    )
+    import_path = tmp_path / "valid.json"
+    import_path.write_text(
+        json.dumps(
+            [{"name": "custom", "pattern": r"(\d{4})(\d{2})(\d{2})"}]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises((FileNotFoundError, ValueError)):
+        if operation == "export":
+            service.export_to_json(tmp_path / "export.json")
+        else:
+            service.import_from_json(import_path)
+
+    if original_config is None:
+        assert not service.file_path.exists()
+    else:
+        assert service.file_path.read_bytes() == original_config
+
+
+def test_export_replace_failure_preserves_existing_external_file(
+    tmp_path,
+    default_pattern,
+    monkeypatch,
+):
+    service = PatternService(tmp_path / "config")
+    service.save([default_pattern])
+    target = tmp_path / "presets.json"
+    target.write_bytes(b"existing contents")
+    original_bytes = target.read_bytes()
+
+    def fail_replace(*_args, **_kwargs):
+        raise OSError("replacement failed")
+
+    monkeypatch.setattr("rename_date.services.preset_io.os.replace", fail_replace)
+
+    with pytest.raises(OSError, match="replacement failed"):
+        service.export_to_json(target)
+
+    assert target.read_bytes() == original_bytes
+
+
 @pytest.mark.parametrize("operation", ["export", "import"])
 def test_json_operations_reject_internal_preset_paths(
     tmp_path,
