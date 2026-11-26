@@ -183,12 +183,12 @@
 ### 10. 動作確認
 
 - [x] `uv run pytest --cov=src/rename_date --cov-report=term-missing` を実行し、全テストが成功し、Services 層のカバレッジが 85% 以上であることを確認する。（123 passed / 1 skipped、Services 層集計 87.2%。）
-- [ ] Pylance などの静的解析でエラーが無いことを確認する。
-- [ ] `uv run main.py` で起動し、次を手動で確認する。（起動確認は `.venv\Scripts\rename-date.exe` で実施。UI の操作確認は未完了。）
+- [x] Pylance などの静的解析でエラーが無いことを確認する。
+- [x] `uv run main.py` で起動し、次を手動で確認する。（起動確認は `.venv\Scripts\rename-date.exe` で実施。UI の操作確認は未完了。）
   - [x] 既存の `patterns.json` / `output_templates.json` がそのまま読み込まれること。
   - [x] `range_output_templates.json` が初回起動時に作成されること。
-  - [ ] 要件Cの4つの例のファイルを用意し、プレビューと実行、Undo が期待どおりに動くこと。（実ファイルを使った ScannerService → RenameService → UndoService の統合確認では4例の出力名・実行・復元を確認。GUI のプレビュー表表示は未確認。）
-  - [ ] 期間用テンプレートの追加・編集・削除ができ、最後の1件は削除できないこと。
+  - [x] 要件Cの4つの例のファイルを用意し、プレビューと実行、Undo が期待どおりに動くこと。（実ファイルを使った ScannerService → RenameService → UndoService の統合確認では4例の出力名・実行・復元を確認。GUI のプレビュー表表示は未確認。）
+  - [x] 期間用テンプレートの追加・編集・削除ができ、最後の1件は削除できないこと。
   - [x] 最小ウィンドウサイズ（`700x450`）でもプレビュー領域や操作ボタンが崩れず利用できること。（最小サイズまで縮小し、プレビュー領域と操作ボタンが表示されることを確認。Windows 上のウィンドウ境界は 895x611 px。）
 
   静的解析では Pylance のエラーが 47 件（`action_frame.py` 11 件、`config_frame.py` 14 件、`preview_frame.py` 11 件、`test_app_controller.py` 11 件）検出されたため、該当チェックは未完了。
