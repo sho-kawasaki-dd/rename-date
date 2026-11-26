@@ -91,11 +91,11 @@
 
 ### 2. 検証（`services/validation.py`）
 
-- [ ] `PatternKind`（`SINGLE` / `RANGE`）の `Enum` を追加する。
-- [ ] `compile_pattern()` が受け付けるグループ数を 3〜6 に広げる。戻り値は今までどおり `re.Pattern[str]` とし、既存の呼び出し元を壊さない。エラーメッセージは既存の英語スタイルに合わせて「3 (single) or 4 to 6 (range) capture groups」相当に更新する。
-- [ ] `pattern_kind(compiled: re.Pattern[str]) -> PatternKind` を追加する（3なら `SINGLE`、4〜6なら `RANGE`）。
-- [ ] `validate_output_template()` に、`{Y2}` `{M2}` `{D2}` が含まれていたら `InvalidTemplateError` を送出するチェックを追加する。
-- [ ] `validate_range_output_template()` を追加する。6つのプレースホルダーがすべて含まれることと、Windows の禁止文字が無いことを検証する。
+- [x] `PatternKind`（`SINGLE` / `RANGE`）の `Enum` を追加する。
+- [x] `compile_pattern()` が受け付けるグループ数を 3〜6 に広げる。戻り値は今までどおり `re.Pattern[str]` とし、既存の呼び出し元を壊さない。エラーメッセージは既存の英語スタイルに合わせて「3 (single) or 4 to 6 (range) capture groups」相当に更新する。
+- [x] `pattern_kind(compiled: re.Pattern[str]) -> PatternKind` を追加する（3なら `SINGLE`、4〜6なら `RANGE`）。
+- [x] `validate_output_template()` に、`{Y2}` `{M2}` `{D2}` が含まれていたら `InvalidTemplateError` を送出するチェックを追加する。
+- [x] `validate_range_output_template()` を追加する。6つのプレースホルダーがすべて含まれることと、Windows の禁止文字が無いことを検証する。
 
 ### 3. 期間の解釈（新規 `services/date_span.py`）
 
