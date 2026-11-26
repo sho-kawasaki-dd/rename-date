@@ -6,7 +6,10 @@ import pytest
 
 from rename_date import config
 from rename_date.models.output_template_entry import OutputTemplateEntry
-from rename_date.services.output_template_service import OutputTemplateService
+from rename_date.services.output_template_service import (
+	OutputTemplateService,
+	RangeOutputTemplateService,
+)
 from rename_date.services.validation import InvalidTemplateError
 
 
@@ -88,3 +91,65 @@ def test_delete_rejects_removing_last_preset(tmp_path, default_output_template):
 
 	with pytest.raises(ValueError):
 		service.delete(default_output_template.name)
+
+
+def test_range_initial_load_creates_default_preset(tmp_path):
+	service = RangeOutputTemplateService(tmp_path)
+
+	entries = service.load()
+
+	assert entries == [
+		OutputTemplateEntry(
+			config.DEFAULT_RANGE_TEMPLATE_NAME,
+			config.DEFAULT_RANGE_OUTPUT_TEMPLATE,
+		)
+	]
+	assert (tmp_path / "range_output_templates.json").exists()
+
+
+@pytest.mark.parametrize(
+	"template",
+	[
+		"{Y}{M}{D}-{Y2}{M2}",
+		"{Y}{M}{D}-{Y2}{D2}",
+		"{Y}{M}{D}-{M2}{D2}",
+	],
+)
+def test_range_save_rejects_missing_placeholders(tmp_path, template):
+	service = RangeOutputTemplateService(tmp_path)
+
+	with pytest.raises(InvalidTemplateError):
+		service.save([OutputTemplateEntry("missing", template)])
+
+
+def test_range_broken_json_falls_back_to_default(tmp_path):
+	service = RangeOutputTemplateService(tmp_path)
+	(tmp_path / "range_output_templates.json").write_text("{broken", encoding="utf-8")
+
+	entries = service.load()
+
+	assert entries == [
+		OutputTemplateEntry(
+			config.DEFAULT_RANGE_TEMPLATE_NAME,
+			config.DEFAULT_RANGE_OUTPUT_TEMPLATE,
+		)
+	]
+
+
+def test_range_delete_rejects_removing_last_preset(tmp_path):
+	service = RangeOutputTemplateService(tmp_path)
+	default_entry = service.load()[0]
+
+	with pytest.raises(ValueError):
+		service.delete(default_entry.name)
+
+
+def test_range_template_uses_separate_file(tmp_path):
+	single_service = OutputTemplateService(tmp_path)
+	range_service = RangeOutputTemplateService(tmp_path)
+
+	single_service.load()
+	range_service.load()
+
+	assert (tmp_path / "output_templates.json").exists()
+	assert (tmp_path / "range_output_templates.json").exists()

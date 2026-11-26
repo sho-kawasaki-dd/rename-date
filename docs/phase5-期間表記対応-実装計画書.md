@@ -114,8 +114,8 @@
 
 ### 5. 期間用テンプレートのプリセット管理
 
-- [ ] `services/output_template_service.py` で、サブクラスから差し替えられる項目（保存ファイル名、一時ファイルの接頭辞、既定エントリ、テンプレート検証）を用意する。`_default_entry()` と `_validate_entries()` を `@classmethod` 化し、テンプレート検証はクラス属性への関数代入を避けて `_validate_template(cls, template: str)` メソッドとして切り出す。既存の `OutputTemplateService` の挙動と `output_templates.json` は変えない。
-- [ ] `RangeOutputTemplateService` を追加する。`range_output_templates.json` に保存し、既定エントリは `config.DEFAULT_RANGE_TEMPLATE_NAME` / `config.DEFAULT_RANGE_OUTPUT_TEMPLATE`、`_validate_template()` は `validate_range_output_template()` を使う。最低1件を残す・名前を重複させない・一時ファイル + `os.replace()` による安全な保存・壊れていたら既定値で作り直す、という契約は既存と同じにする。
+- [x] `services/output_template_service.py` で、サブクラスから差し替えられる項目（保存ファイル名、一時ファイルの接頭辞、既定エントリ、テンプレート検証）を用意する。`_default_entry()` と `_validate_entries()` を `@classmethod` 化し、テンプレート検証はクラス属性への関数代入を避けて `_validate_template(cls, template: str)` メソッドとして切り出す。既存の `OutputTemplateService` の挙動と `output_templates.json` は変えない。
+- [x] `RangeOutputTemplateService` を追加する。`range_output_templates.json` に保存し、既定エントリは `config.DEFAULT_RANGE_TEMPLATE_NAME` / `config.DEFAULT_RANGE_OUTPUT_TEMPLATE`、`_validate_template()` は `validate_range_output_template()` を使う。最低1件を残す・名前を重複させない・一時ファイル + `os.replace()` による安全な保存・壊れていたら既定値で作り直す、という契約は既存と同じにする。
 
 ### 6. Controller と起動処理
 

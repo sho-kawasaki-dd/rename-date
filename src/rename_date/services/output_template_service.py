@@ -7,15 +7,21 @@ from pathlib import Path
 
 from rename_date import config
 from rename_date.models.output_template_entry import OutputTemplateEntry
-from rename_date.services.validation import validate_output_template
+from rename_date.services.validation import (
+    validate_output_template,
+    validate_range_output_template,
+)
 
 
 class OutputTemplateService:
     """Manage the user's saved output-template presets."""
 
+    _file_name = "output_templates.json"
+    _temp_prefix = ".output-templates-"
+
     def __init__(self, base_dir: Path | None = None) -> None:
         self.base_dir = base_dir if base_dir is not None else config.get_config_dir()
-        self.file_path = self.base_dir / "output_templates.json"
+        self.file_path = self.base_dir / self._file_name
 
     def load(self) -> list[OutputTemplateEntry]:
         """Load presets, restoring the default preset when storage is invalid."""
@@ -38,7 +44,7 @@ class OutputTemplateService:
                 mode="w",
                 encoding="utf-8",
                 dir=self.base_dir,
-                prefix=".output-templates-",
+                prefix=self._temp_prefix,
                 suffix=".tmp",
                 delete=False,
             ) as file:
@@ -78,8 +84,8 @@ class OutputTemplateService:
             self.save(remaining)
         return remaining
 
-    @staticmethod
-    def _default_entry() -> OutputTemplateEntry:
+    @classmethod
+    def _default_entry(cls) -> OutputTemplateEntry:
         return OutputTemplateEntry(
             name=config.DEFAULT_TEMPLATE_NAME,
             template=config.DEFAULT_OUTPUT_TEMPLATE,
@@ -103,8 +109,12 @@ class OutputTemplateService:
         cls._validate_entries(entries)
         return entries
 
-    @staticmethod
-    def _validate_entries(entries: list[OutputTemplateEntry]) -> None:
+    @classmethod
+    def _validate_template(cls, template: str) -> None:
+        validate_output_template(template)
+
+    @classmethod
+    def _validate_entries(cls, entries: list[OutputTemplateEntry]) -> None:
         if not isinstance(entries, list) or not entries:
             raise ValueError("at least one output-template preset is required")
 
@@ -117,4 +127,22 @@ class OutputTemplateService:
             if entry.name in names:
                 raise ValueError("output-template preset names must be unique")
             names.add(entry.name)
-            validate_output_template(entry.template)
+            cls._validate_template(entry.template)
+
+
+class RangeOutputTemplateService(OutputTemplateService):
+    """Manage the user's saved range-date output-template presets."""
+
+    _file_name = "range_output_templates.json"
+    _temp_prefix = ".range-output-templates-"
+
+    @classmethod
+    def _default_entry(cls) -> OutputTemplateEntry:
+        return OutputTemplateEntry(
+            name=config.DEFAULT_RANGE_TEMPLATE_NAME,
+            template=config.DEFAULT_RANGE_OUTPUT_TEMPLATE,
+        )
+
+    @classmethod
+    def _validate_template(cls, template: str) -> None:
+        validate_range_output_template(template)
