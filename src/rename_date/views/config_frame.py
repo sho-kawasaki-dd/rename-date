@@ -13,6 +13,7 @@ from rename_date.models.pattern_entry import PatternEntry
 from rename_date.services.validation import (
 	compile_pattern,
 	pattern_kind,
+	validate_month_output_template,
 	validate_range_output_template,
 	PatternKind,
 )
@@ -20,7 +21,12 @@ from rename_date.views.output_template_dialog import OutputTemplateEditDialog
 from rename_date.views.pattern_dialog import PatternEditDialog
 
 
-PresetKind = Literal["pattern", "single_template", "range_template"]
+PresetKind = Literal[
+	"pattern",
+	"single_template",
+	"range_template",
+	"month_template",
+]
 
 
 def resolve_selected_indices(
@@ -53,6 +59,8 @@ class ConfigFrame(ttk.Frame):
 		on_template_delete: Callable[[str], None] = _noop,
 		on_range_template_save: Callable[[OutputTemplateEntry], None] = _noop,
 		on_range_template_delete: Callable[[str], None] = _noop,
+		on_month_template_save: Callable[[OutputTemplateEntry], None] = _noop,
+		on_month_template_delete: Callable[[str], None] = _noop,
 		on_preview_request: Callable[[], None] = _noop,
 		**kwargs: object,
 	) -> None:
@@ -63,12 +71,15 @@ class ConfigFrame(ttk.Frame):
 		self._on_template_delete = on_template_delete
 		self._on_range_template_save = on_range_template_save
 		self._on_range_template_delete = on_range_template_delete
+		self._on_month_template_save = on_month_template_save
+		self._on_month_template_delete = on_month_template_delete
 		self._on_preview_request = on_preview_request
 
 		self._targets: list[Path] = []
 		self._patterns: list[PatternEntry] = []
 		self._templates: list[OutputTemplateEntry] = []
 		self._range_templates: list[OutputTemplateEntry] = []
+		self._month_templates: list[OutputTemplateEntry] = []
 
 		self._build_target_section()
 		self._build_pattern_section()
@@ -136,25 +147,37 @@ class ConfigFrame(ttk.Frame):
 		single_frame.grid(row=0, column=0, sticky="ew")
 		single_frame.columnconfigure(0, weight=1)
 		ttk.Label(single_frame, text="単日").grid(row=0, column=0, sticky="w")
-		self.template_combobox = ttk.Combobox(single_frame, state="readonly")
-		self.template_combobox.grid(row=1, column=0, sticky="ew")
 		single_buttons = ttk.Frame(single_frame)
-		single_buttons.grid(row=2, column=0, pady=(3, 5), sticky="e")
+		single_buttons.grid(row=0, column=1, sticky="e")
 		ttk.Button(single_buttons, text="New", command=self._new_template).grid(row=0, column=0, padx=(0, 2))
 		ttk.Button(single_buttons, text="Edit", command=self._edit_template).grid(row=0, column=1, padx=2)
 		ttk.Button(single_buttons, text="Delete", command=self._delete_template).grid(row=0, column=2, padx=(2, 0))
+		self.template_combobox = ttk.Combobox(single_frame, state="readonly")
+		self.template_combobox.grid(row=1, column=0, columnspan=2, sticky="ew")
 
 		range_frame = ttk.Frame(template_section)
-		range_frame.grid(row=1, column=0, sticky="ew")
+		range_frame.grid(row=1, column=0, pady=(3, 0), sticky="ew")
 		range_frame.columnconfigure(0, weight=1)
 		ttk.Label(range_frame, text="期間").grid(row=0, column=0, sticky="w")
-		self.range_template_combobox = ttk.Combobox(range_frame, state="readonly")
-		self.range_template_combobox.grid(row=1, column=0, sticky="ew")
 		range_buttons = ttk.Frame(range_frame)
-		range_buttons.grid(row=2, column=0, pady=(3, 0), sticky="e")
+		range_buttons.grid(row=0, column=1, sticky="e")
 		ttk.Button(range_buttons, text="New", command=self._new_range_template).grid(row=0, column=0, padx=(0, 2))
 		ttk.Button(range_buttons, text="Edit", command=self._edit_range_template).grid(row=0, column=1, padx=2)
 		ttk.Button(range_buttons, text="Delete", command=self._delete_range_template).grid(row=0, column=2, padx=(2, 0))
+		self.range_template_combobox = ttk.Combobox(range_frame, state="readonly")
+		self.range_template_combobox.grid(row=1, column=0, columnspan=2, sticky="ew")
+
+		month_frame = ttk.Frame(template_section)
+		month_frame.grid(row=2, column=0, pady=(3, 0), sticky="ew")
+		month_frame.columnconfigure(0, weight=1)
+		ttk.Label(month_frame, text="年月").grid(row=0, column=0, sticky="w")
+		month_buttons = ttk.Frame(month_frame)
+		month_buttons.grid(row=0, column=1, sticky="e")
+		ttk.Button(month_buttons, text="New", command=self._new_month_template).grid(row=0, column=0, padx=(0, 2))
+		ttk.Button(month_buttons, text="Edit", command=self._edit_month_template).grid(row=0, column=1, padx=2)
+		ttk.Button(month_buttons, text="Delete", command=self._delete_month_template).grid(row=0, column=2, padx=(2, 0))
+		self.month_template_combobox = ttk.Combobox(month_frame, state="readonly")
+		self.month_template_combobox.grid(row=1, column=0, columnspan=2, sticky="ew")
 
 		ttk.Button(self, text="Refresh preview", command=self._request_preview).grid(
 			row=2, column=0, columnspan=2, padx=6, pady=(3, 6), sticky="e"
@@ -175,6 +198,8 @@ class ConfigFrame(ttk.Frame):
 			"on_template_delete": "_on_template_delete",
 			"on_range_template_save": "_on_range_template_save",
 			"on_range_template_delete": "_on_range_template_delete",
+			"on_month_template_save": "_on_month_template_save",
+			"on_month_template_delete": "_on_month_template_delete",
 			"on_preview_request": "_on_preview_request",
 		}
 		for name, callback in kwargs.items():
@@ -198,6 +223,8 @@ class ConfigFrame(ttk.Frame):
 			return len(self._templates)
 		if kind == "range_template":
 			return len(self._range_templates)
+		if kind == "month_template":
+			return len(self._month_templates)
 		raise ValueError(f"unknown preset kind: {kind}")
 
 	def set_patterns(
@@ -219,8 +246,15 @@ class ConfigFrame(ttk.Frame):
 			try:
 				kind = pattern_kind(compile_pattern(entry.pattern))
 			except ValueError:
-				kind = PatternKind.SINGLE
-			label = "[期間]" if kind is PatternKind.RANGE else "[単日]"
+				kind = None
+			if kind is PatternKind.RANGE:
+				label = "[期間]"
+			elif kind is PatternKind.SINGLE:
+				label = "[単日]"
+			elif kind is PatternKind.MONTH:
+				label = "[年月]"
+			else:
+				label = "[不正]"
 			self.pattern_listbox.insert(tk.END, f"{label} {entry.name}")
 		if preserve_selection:
 			for index in resolve_selected_indices(
@@ -305,6 +339,43 @@ class ConfigFrame(ttk.Frame):
 		if index < 0 or index >= len(self._range_templates):
 			return None
 		return self._range_templates[index]
+
+	def set_month_templates(
+		self,
+		entries: list[OutputTemplateEntry],
+		*,
+		preserve_selection: bool = False,
+	) -> None:
+		"""Replace month output-template choices, optionally retaining its selection."""
+
+		selected = (
+			self.get_selected_month_template() if preserve_selection else None
+		)
+		self._month_templates = list(entries)
+		self.month_template_combobox.configure(
+			values=[entry.name for entry in self._month_templates]
+		)
+		if preserve_selection:
+			indices = resolve_selected_indices(
+				[selected.name] if selected is not None else [],
+				[entry.name for entry in self._month_templates],
+			)
+			if indices:
+				self.month_template_combobox.current(indices[0])
+			else:
+				self.month_template_combobox.set("")
+		elif self._month_templates:
+			self.month_template_combobox.current(0)
+		else:
+			self.month_template_combobox.set("")
+
+	def get_selected_month_template(self) -> OutputTemplateEntry | None:
+		"""Return the selected month output template, if one exists."""
+
+		index = self.month_template_combobox.current()
+		if index < 0 or index >= len(self._month_templates):
+			return None
+		return self._month_templates[index]
 
 	def _choose_folder(self) -> None:
 		selected = filedialog.askdirectory(parent=self.winfo_toplevel())
@@ -437,3 +508,42 @@ class ConfigFrame(ttk.Frame):
 			parent=self.winfo_toplevel(),
 		):
 			self._on_range_template_delete(entry.name)
+
+	def _new_month_template(self) -> None:
+		dialog = OutputTemplateEditDialog(
+			self,
+			initial=None,
+			validator=validate_month_output_template,
+			title="年月用テンプレートプリセット",
+			description="利用可能: {Y}{M}。他のプレースホルダーや波括弧は使用できません。",
+		)
+		self.wait_window(dialog)
+		if dialog.result is not None:
+			self._on_month_template_save(dialog.result)
+
+	def _edit_month_template(self) -> None:
+		index = self.month_template_combobox.current()
+		if index < 0 or index >= len(self._month_templates):
+			return
+		dialog = OutputTemplateEditDialog(
+			self,
+			initial=self._month_templates[index],
+			validator=validate_month_output_template,
+			title="年月用テンプレートプリセット",
+			description="利用可能: {Y}{M}。他のプレースホルダーや波括弧は使用できません。",
+		)
+		self.wait_window(dialog)
+		if dialog.result is not None:
+			self._on_month_template_save(dialog.result)
+
+	def _delete_month_template(self) -> None:
+		index = self.month_template_combobox.current()
+		if index < 0 or index >= len(self._month_templates):
+			return
+		entry = self._month_templates[index]
+		if messagebox.askyesno(
+			"年月テンプレートを削除",
+			f'年月テンプレート "{entry.name}" を削除しますか？',
+			parent=self.winfo_toplevel(),
+		):
+			self._on_month_template_delete(entry.name)

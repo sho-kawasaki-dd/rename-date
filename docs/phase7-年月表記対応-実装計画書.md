@@ -36,9 +36,9 @@
 
 ### 2. Views・Controller：設定とプレビュー
 
-- [ ] [起動処理](../src/rename_date/__main__.py) で `MonthOutputTemplateService` を生成し、[AppController](../src/rename_date/controllers/app_controller.py) に渡す。[ConfigFrame](../src/rename_date/views/config_frame.py) の出力テンプレート欄は「単日」「期間」「年月」それぞれを2段構成（上段: 左に種別ラベル・右寄せで `New`/`Edit`/`Delete`、下段: 全幅の `Combobox`）へ見直し、`700x450` でもプレビュー領域を圧迫せずに年月用の選択・編集操作を追加する。[出力テンプレート編集ダイアログ](../src/rename_date/views/output_template_dialog.py) に年月用検証とタイトル・説明文（`年月用テンプレートプリセット`、利用可能な `{Y}{M}` と他プレースホルダー・波括弧の禁止）を渡す。`set_patterns` の種別表示を暗黙の `else:` ではなく明示分岐にして `[年月]` を表示し、[パターン編集ダイアログ](../src/rename_date/views/pattern_dialog.py) のグループ数の案内を更新する。
-- [ ] [MainWindow](../src/rename_date/views/main_window.py) のプリセットメニューと保存・取込ダイアログに年月用を追加し、Controllerの種類別処理につなぐ。`_on_preset_import` の暗黙の `else:` を明示分岐（未知種別は `ValueError`）に改め、Phase 6 の選択復元、処理中の取込拒否、上書き確認、エラー通知、プレビュー無効化を再利用する。
-- [ ] `_on_preview_request` で既存の必須選択チェック後、すべての選択パターンの種別を確認してから年月テンプレートの必須選択を判定する。種別確認中に `InvalidPatternError` を捕捉した場合は、年月テンプレートが未選択なら `config.DEFAULT_MONTH_OUTPUT_TEMPLATE` を補い、未選択警告を出さずに元のパターンを `_start_scan` 経由で走査ワーカーへ渡す。`_on_scan_error` を直接呼ばず、`_start_scan` で旧実行対象を破棄してからワーカーの既存の「パターンエラー」通知へ流す。年月パターンも年月テンプレートも未選択なら既定値を補う。走査に渡した年月テンプレートは再走査用の `_last_scan_params` に保持し、実行・Undo 後は設定欄の現在値ではなく元の走査条件を使う。ワーカースレッド、キャンセル、UI更新の方式は変更しない。
+- [x] [起動処理](../src/rename_date/__main__.py) で `MonthOutputTemplateService` を生成し、[AppController](../src/rename_date/controllers/app_controller.py) に渡す。[ConfigFrame](../src/rename_date/views/config_frame.py) の出力テンプレート欄を単日・期間・年月の各2段構成（上段に種別ラベルと右寄せ操作ボタン、下段に全幅コンボボックス）へ見直し、年月用の選択・追加・編集・削除を追加する。[出力テンプレート編集ダイアログ](../src/rename_date/views/output_template_dialog.py) に年月用検証とタイトル・説明文（`年月用テンプレートプリセット`、`{Y}{M}` のみ利用可）を渡す。パターン一覧に `[年月]` を表示し、[パターン編集ダイアログ](../src/rename_date/views/pattern_dialog.py) のグループ数案内を更新する。
+- [x] [MainWindow](../src/rename_date/views/main_window.py) のプリセットメニューと保存・取込ダイアログに年月用を追加し、Controllerの種類別処理につなぐ。取込時は明示的な種別分岐と未知種別の `ValueError` を使い、選択復元、処理中の取込拒否、上書き確認、エラー通知、プレビュー無効化を既存の方式で行う。
+- [x] `_on_preview_request` で既存の必須選択を確認した後、全選択パターンの種別を検証して年月テンプレートの必須選択を判定する。不正パターンがある場合は年月テンプレート未選択の警告を優先せず、既定年月テンプレートを補って `_start_scan` から走査ワーカーへ渡す。年月パターンがない場合の未選択も既定値で補う。走査条件には年月テンプレートを保存し、実行・Undo後の再走査で元の条件を使う。
 
 ### 3. テスト
 

@@ -57,6 +57,7 @@ class MainWindow(TkinterDnD.Tk):
 			("pattern", "入力パターン"),
 			("single_template", "単日出力テンプレート"),
 			("range_template", "期間出力テンプレート"),
+			("month_template", "年月出力テンプレート"),
 		)
 		for kind, label in menus:
 			submenu = tk.Menu(preset_menu, tearoff=False)
@@ -121,6 +122,7 @@ class MainWindow(TkinterDnD.Tk):
 			"pattern": "入力パターン",
 			"single_template": "単日出力テンプレート",
 			"range_template": "期間出力テンプレート",
+			"month_template": "年月出力テンプレート",
 		}[kind]
 
 	@staticmethod
@@ -129,4 +131,5 @@ class MainWindow(TkinterDnD.Tk):
 			"pattern": config.PATTERNS_FILE_NAME,
 			"single_template": config.OUTPUT_TEMPLATES_FILE_NAME,
 			"range_template": config.RANGE_OUTPUT_TEMPLATES_FILE_NAME,
+			"month_template": config.MONTH_OUTPUT_TEMPLATES_FILE_NAME,
 		}[kind]

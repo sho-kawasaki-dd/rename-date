@@ -42,7 +42,7 @@ class PatternEditDialog(tk.Toplevel):
 
         ttk.Label(
             content,
-            text="キャプチャグループ数: 3＝単日、4〜6＝期間",
+            text="キャプチャグループ数: 2＝年月、3＝単日、4〜6＝期間",
         ).grid(row=2, column=0, columnspan=2, pady=(0, 8), sticky="w")
 
         self._error_label = ttk.Label(content, foreground="red")

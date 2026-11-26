@@ -10,7 +10,11 @@ from rename_date.models.output_template_entry import OutputTemplateEntry
 from rename_date.models.pattern_entry import PatternEntry
 from rename_date.models.rename_item import ItemStatus, RenameItem
 from rename_date.views.config_frame import resolve_selected_indices
-from rename_date.services.validation import InvalidPatternError, InvalidTemplateError
+from rename_date.services.validation import (
+	InvalidPatternError,
+	InvalidTemplateError,
+	compile_pattern,
+)
 
 
 class FakeConfigFrame:
@@ -19,10 +23,12 @@ class FakeConfigFrame:
 		self.selected_patterns: list[PatternEntry] = []
 		self.selected_template: OutputTemplateEntry | None = None
 		self.selected_range_template: OutputTemplateEntry | None = None
+		self.selected_month_template: OutputTemplateEntry | None = None
 		self.callbacks = {}
 		self.patterns = []
 		self.templates = []
 		self.range_templates = []
+		self.month_templates = []
 
 	def set_patterns(self, entries, *, preserve_selection=False):
 		selected_names = (
@@ -75,6 +81,7 @@ class FakeConfigFrame:
 			"pattern": len(self.patterns),
 			"single_template": len(self.templates),
 			"range_template": len(self.range_templates),
+			"month_template": len(self.month_templates),
 		}[kind]
 
 	def set_callbacks(self, **callbacks):
@@ -91,6 +98,26 @@ class FakeConfigFrame:
 
 	def get_selected_range_template(self):
 		return self.selected_range_template
+
+	def set_month_templates(self, entries, *, preserve_selection=False):
+		selected_name = (
+			self.selected_month_template.name
+			if preserve_selection and self.selected_month_template is not None
+			else None
+		)
+		self.month_templates = list(entries)
+		if preserve_selection:
+			self.selected_month_template = next(
+				(entry for entry in self.month_templates if entry.name == selected_name),
+				None,
+			)
+		else:
+			self.selected_month_template = (
+				self.month_templates[0] if self.month_templates else None
+			)
+
+	def get_selected_month_template(self):
+		return self.selected_month_template
 
 
 class FakePreviewFrame:
@@ -273,6 +300,10 @@ class FakeRangeTemplateService(FakeTemplateService):
 	pass
 
 
+class FakeMonthTemplateService(FakeTemplateService):
+	pass
+
+
 class FakeScannerService:
 	def __init__(self, items):
 		self.items = list(items)
@@ -286,6 +317,8 @@ class FakeScannerService:
 		cancel_event=None,
 		progress_callback=None,
 		range_output_template="{Y}{M}{D}-{Y2}{M2}{D2}",
+		*,
+		month_output_template="{Y}-{M}",
 	):
 		self.calls.append(
 			(
@@ -294,8 +327,11 @@ class FakeScannerService:
 				output_template,
 				range_output_template,
 				cancel_event,
+				month_output_template,
 			)
 		)
+		for pattern in patterns:
+			compile_pattern(pattern)
 		if progress_callback:
 			progress_callback(1, 1)
 		return list(self.items)
@@ -355,6 +391,7 @@ def make_controller(monkeypatch, tmp_path):
 	pattern = PatternEntry("default", r"\((\d{4})\.(\d{1,2})\.(\d{1,2})\)")
 	template = OutputTemplateEntry("default", "{Y}{M}{D}")
 	range_template = OutputTemplateEntry("range default", "{Y}{M}{D}-{Y2}{M2}{D2}")
+	month_template = OutputTemplateEntry("month default", "{Y}-{M}")
 	source = tmp_path / "before.txt"
 	target = tmp_path / "after.txt"
 	item = RenameItem(source, target)
@@ -363,6 +400,7 @@ def make_controller(monkeypatch, tmp_path):
 	window.config_frame.selected_patterns = [pattern]
 	window.config_frame.selected_template = template
 	window.config_frame.selected_range_template = range_template
+	window.config_frame.selected_month_template = month_template
 	scanner = FakeScannerService([item])
 	rename = FakeRenameService([item])
 	undo = FakeUndoService()
@@ -370,9 +408,11 @@ def make_controller(monkeypatch, tmp_path):
 	patterns = FakePatternService([pattern])
 	templates = FakeTemplateService([template])
 	range_templates = FakeRangeTemplateService([range_template])
+	month_templates = FakeMonthTemplateService([month_template])
 	patterns.base_dir = tmp_path / "config"
 	templates.base_dir = tmp_path / "config"
 	range_templates.base_dir = tmp_path / "config"
+	month_templates.base_dir = tmp_path / "config"
 	controller = AppController(
 		window,
 		scanner,
@@ -382,6 +422,7 @@ def make_controller(monkeypatch, tmp_path):
 		patterns,
 		templates,
 		range_templates,
+		month_templates,
 	)
 	return (
 		controller,
@@ -429,6 +470,74 @@ def test_preview_warns_without_range_template(monkeypatch, tmp_path):
 	assert scanner.calls == []
 
 
+def test_preview_requires_month_template_for_month_pattern(monkeypatch, tmp_path):
+	controller, window, scanner, *_ = make_controller(monkeypatch, tmp_path)
+	warnings = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showwarning",
+		lambda *args, **kwargs: warnings.append(args),
+	)
+	window.config_frame.selected_patterns = [
+		PatternEntry("year-month", r"(\d{4})\.(\d{1,2})")
+	]
+	window.config_frame.selected_month_template = None
+
+	controller._on_preview_request()
+
+	assert len(warnings) == 1
+	assert "年月用" in warnings[0][1]
+	assert scanner.calls == []
+
+
+def test_preview_uses_default_month_template_when_no_month_pattern(
+	monkeypatch,
+	tmp_path,
+):
+	controller, window, scanner, *_ = make_controller(monkeypatch, tmp_path)
+	window.config_frame.selected_month_template = None
+
+	controller._on_preview_request()
+
+	assert scanner.calls[0][5] == "{Y}-{M}"
+
+
+def test_invalid_pattern_error_precedes_missing_month_template_warning(
+	monkeypatch,
+	tmp_path,
+):
+	controller, window, scanner, rename, *_ = make_controller(monkeypatch, tmp_path)
+	controller._on_preview_request()
+	warnings = []
+	errors = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showwarning",
+		lambda *args, **kwargs: warnings.append(args),
+	)
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showerror",
+		lambda *args, **kwargs: errors.append(args),
+	)
+	window.config_frame.selected_patterns = [
+		PatternEntry("year-month", r"(\d{4})\.(\d{1,2})"),
+		PatternEntry("invalid", r"(\d{1,2})"),
+	]
+	window.config_frame.selected_month_template = None
+
+	controller._on_preview_request()
+	controller._on_execute()
+
+	assert len(warnings) == 1
+	assert "年月用" not in warnings[0][1]
+	assert errors and errors[0][0] == "パターンエラー"
+	assert controller._last_items == []
+	assert rename.calls == []
+	assert len(scanner.calls) == 2
+	assert scanner.calls[-1][5] == "{Y}-{M}"
+
+
 def test_preview_warns_without_required_selection(monkeypatch, tmp_path):
 	controller, window, scanner, *_ = make_controller(monkeypatch, tmp_path)
 	warnings = []
@@ -454,6 +563,7 @@ def test_execute_logs_pushes_history_and_rescans(monkeypatch, tmp_path):
 	assert len(undo.histories) == 1
 	assert len(scanner.calls) == 2
 	assert scanner.calls[-1][3] == "{Y}{M}{D}-{Y2}{M2}{D2}"
+	assert scanner.calls[-1][5] == "{Y}-{M}"
 	assert window.action_frame.processing is False
 
 
@@ -482,15 +592,43 @@ def test_undo_logs_new_session_id_and_rescans(monkeypatch, tmp_path):
 	assert log.undo_calls[0][1] != log.undo_calls[1][1]
 	assert len(scanner.calls) == 3
 	assert all(call[3] == "{Y}{M}{D}-{Y2}{M2}{D2}" for call in scanner.calls)
+	assert all(call[5] == "{Y}-{M}" for call in scanner.calls)
+
+
+def test_operations_rescan_with_month_template_from_original_preview(
+	monkeypatch,
+	tmp_path,
+):
+	controller, window, scanner, _, undo, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	controller._on_preview_request()
+	window.config_frame.selected_month_template = OutputTemplateEntry(
+		"changed after preview",
+		"{M}-{Y}",
+	)
+
+	controller._on_execute()
+	controller._on_undo()
+
+	assert [call[5] for call in scanner.calls] == [
+		"{Y}-{M}",
+		"{Y}-{M}",
+		"{Y}-{M}",
+	]
+	assert len(undo.calls) == 1
 
 
 def test_pattern_and_template_errors_are_reported(monkeypatch, tmp_path):
 	controller, window, _, _, _, _, patterns, templates, range_templates, pattern, template, _ = make_controller(monkeypatch, tmp_path)
+	month_templates = controller.month_output_template_service
 	errors = []
 	monkeypatch.setattr(controller_module.messagebox, "showerror", lambda *args, **kwargs: errors.append(args))
 	patterns.error = InvalidPatternError("bad pattern")
 	templates.error = InvalidTemplateError("bad template")
 	range_templates.error = InvalidTemplateError("bad range template")
+	month_templates.error = InvalidTemplateError("bad month template")
 	range_template = OutputTemplateEntry(
 		"range default",
 		"{Y}{M}{D}-{Y2}{M2}{D2}",
@@ -502,8 +640,10 @@ def test_pattern_and_template_errors_are_reported(monkeypatch, tmp_path):
 	controller._on_template_delete(template.name)
 	controller._on_range_template_save(range_template)
 	controller._on_range_template_delete(range_template.name)
+	controller._on_month_template_save(template)
+	controller._on_month_template_delete(template.name)
 
-	assert len(errors) == 6
+	assert len(errors) == 8
 
 
 def test_range_template_save_and_delete_update_config(monkeypatch, tmp_path):
@@ -524,6 +664,21 @@ def test_range_template_save_and_delete_update_config(monkeypatch, tmp_path):
 	controller._on_range_template_delete(replacement.name)
 
 	assert replacement not in range_templates.entries
+
+
+def test_month_template_save_and_delete_update_config(monkeypatch, tmp_path):
+	controller, window, *_ = make_controller(monkeypatch, tmp_path)
+	month_templates = controller.month_output_template_service
+	replacement = OutputTemplateEntry("replacement month", "{Y}_{M}")
+
+	controller._on_month_template_save(replacement)
+
+	assert replacement in month_templates.entries
+	assert window.config_frame.month_templates[-1] == replacement
+
+	controller._on_month_template_delete(replacement.name)
+
+	assert replacement not in month_templates.entries
 
 
 def test_busy_operations_are_ignored_and_cancel_sets_event(monkeypatch, tmp_path):
@@ -604,7 +759,7 @@ def test_import_updates_presets_and_invalidates_preview(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize(
 	"kind",
-	["pattern", "single_template", "range_template"],
+	["pattern", "single_template", "range_template", "month_template"],
 )
 def test_import_preserves_existing_selection_by_name(
 	monkeypatch,
@@ -622,6 +777,7 @@ def test_import_preserves_existing_selection_by_name(
 	)
 	added_pattern = PatternEntry("added pattern", r"(\d{4})(\d{2})(\d{2})")
 	added_template = OutputTemplateEntry("added template", "{Y}{M}{D}")
+	added_month_template = OutputTemplateEntry("added month", "{Y}_{M}")
 
 	if kind == "pattern":
 		patterns.import_entries = [added_pattern]
@@ -629,7 +785,7 @@ def test_import_preserves_existing_selection_by_name(
 	elif kind == "single_template":
 		templates.import_entries = [added_template]
 		selected_name = templates.entries[0].name
-	else:
+	elif kind == "range_template":
 		range_templates.import_entries = [
 			OutputTemplateEntry(
 				"added range",
@@ -637,6 +793,13 @@ def test_import_preserves_existing_selection_by_name(
 			)
 		]
 		selected_name = range_templates.entries[0].name
+	else:
+		controller.month_output_template_service.import_entries = [
+			added_month_template
+		]
+		selected_name = (
+			controller.month_output_template_service.entries[0].name
+		)
 
 	controller._on_preset_import(kind)
 
@@ -650,13 +813,52 @@ def test_import_preserves_existing_selection_by_name(
 		assert selected_template is not None
 		assert selected_template.name == selected_name
 		assert added_template != selected_template
-	else:
+	elif kind == "range_template":
 		selected_range_template = (
 			window.config_frame.get_selected_range_template()
 		)
 		assert selected_range_template is not None
 		assert selected_range_template.name == selected_name
 		assert selected_range_template.name != "added range"
+	else:
+		selected_month_template = (
+			window.config_frame.get_selected_month_template()
+		)
+		assert selected_month_template is not None
+		assert selected_month_template.name == selected_name
+		assert selected_month_template != added_month_template
+
+
+def test_month_template_import_preserves_selection_and_invalidates_preview(
+	monkeypatch,
+	tmp_path,
+):
+	controller, window, scanner, _, undo, _, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	controller._on_preview_request()
+	old_items = list(controller._last_items)
+	undo.histories = [ExecutionHistory(items=old_items)]
+	month_service = controller.month_output_template_service
+	added = OutputTemplateEntry("imported month", "{Y}_{M}")
+	month_service.import_entries = [added]
+	window.import_path = tmp_path / "month-templates.json"
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: None,
+	)
+
+	controller._on_preset_import("month_template")
+
+	assert month_service.entries[-1] == added
+	assert window.config_frame.get_selected_month_template().name == "month default"
+	assert window.preview_frame.items == []
+	assert controller._last_items == []
+	assert controller._last_scan_params is None
+	assert undo.has_history()
+	assert len(scanner.calls) == 1
 
 
 def test_import_is_blocked_before_open_dialog_while_processing(monkeypatch, tmp_path):
