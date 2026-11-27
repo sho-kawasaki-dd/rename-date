@@ -10,6 +10,7 @@ tkdnd_root = os.path.join(os.path.dirname(tkinterdnd2.__file__), "tkdnd")
 icon_path = project_root / "installer" / "assets" / "app.ico"
 icon = str(icon_path) if os.path.exists(icon_path) else None
 tk_runtime_marker = project_root / "installer" / "assets" / "tk-runtime.txt"
+dpi_manifest = project_root / "installer" / "assets" / "dpi-awareness.manifest"
 
 
 a = Analysis(
@@ -40,6 +41,7 @@ exe = EXE(
 	upx=True,
 	console=False,
 	icon=icon,
+	manifest=str(dpi_manifest),
 )
 coll = COLLECT(
 	exe,

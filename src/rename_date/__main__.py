@@ -1,10 +1,12 @@
 """Application entry point."""
 
+import ctypes
 import logging
 import tkinter as tk
 from tkinter import messagebox
 
 from rename_date.controllers.app_controller import AppController
+from rename_date.dpi_awareness import enable_system_dpi_awareness
 from rename_date.services.log_service import LogService
 from rename_date.services.output_template_service import (
     MonthOutputTemplateService,
@@ -21,6 +23,17 @@ from rename_date.views.main_window import MainWindow
 
 def main() -> None:
     log_service: LogService | None = None
+    try:
+        enable_system_dpi_awareness()
+    except RuntimeError as exc:
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            str(exc),
+            "rename-date",
+            0x10,
+        )
+        return
+
     try:
         with SingleInstanceGuard() as guard:
             if guard.already_running:
