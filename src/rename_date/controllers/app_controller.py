@@ -1,11 +1,13 @@
 """Coordinate views and services for the rename workflow."""
 
 from pathlib import Path
+from collections.abc import Callable
 import os
 import logging
 import threading
 import uuid
 from tkinter import messagebox
+from typing import Protocol, TypeVar
 
 from rename_date import config
 from rename_date.models.execution_history import ExecutionHistory
@@ -23,8 +25,11 @@ from rename_date.services.rename_service import RenameService
 from rename_date.services.scanner_service import ScannerService
 from rename_date.services.undo_service import UndoService
 from rename_date.services.preset_io import (
+	ConflictPolicy,
 	PresetIOError,
 	PresetIOReason,
+	PresetImportPlan,
+	PresetImportResult,
 	ensure_external_preset_path,
 )
 from rename_date.services.validation import (
@@ -39,6 +44,17 @@ from rename_date.views.main_window import MainWindow
 
 
 ScanParams = tuple[list[Path], list[str], str, str, str]
+ImportEntry = TypeVar("ImportEntry", PatternEntry, OutputTemplateEntry)
+
+
+class PresetImportService(Protocol[ImportEntry]):
+	def prepare_import(self, path: Path) -> PresetImportPlan[ImportEntry]: ...
+
+	def apply_import(
+		self,
+		plan: PresetImportPlan[ImportEntry],
+		policy: ConflictPolicy,
+	) -> PresetImportResult[ImportEntry]: ...
 
 
 class AppController:
@@ -223,42 +239,89 @@ class AppController:
 		path = self.window.choose_preset_import_path(kind)
 		if path is None:
 			return
-		before_count = self.window.config_frame.get_preset_count(kind)
+		if kind == "pattern":
+			self._import_presets(
+				kind,
+				path,
+				self.pattern_service,
+				lambda entries: self.window.config_frame.set_patterns(
+					entries,
+					preserve_selection=True,
+				),
+			)
+		elif kind == "single_template":
+			self._import_presets(
+				kind,
+				path,
+				self.output_template_service,
+				lambda entries: self.window.config_frame.set_templates(
+					entries,
+					preserve_selection=True,
+				),
+			)
+		elif kind == "range_template":
+			self._import_presets(
+				kind,
+				path,
+				self.range_output_template_service,
+				lambda entries: self.window.config_frame.set_range_templates(
+					entries,
+					preserve_selection=True,
+				),
+			)
+		elif kind == "month_template":
+			self._import_presets(
+				kind,
+				path,
+				self.month_output_template_service,
+				lambda entries: self.window.config_frame.set_month_templates(
+					entries,
+					preserve_selection=True,
+				),
+			)
+		else:
+			self._show_preset_io_error(
+				"取込",
+				path,
+				ValueError(f"unknown preset kind: {kind}"),
+			)
+
+	def _import_presets(
+		self,
+		kind: PresetKind,
+		path: Path,
+		service: PresetImportService[ImportEntry],
+		set_entries: Callable[[list[ImportEntry]], None],
+	) -> None:
 		try:
-			if kind == "pattern":
-				entries = self.pattern_service.import_from_json(path)
-				imported_count = len(entries) - before_count
-				self.window.config_frame.set_patterns(
-					entries,
-					preserve_selection=True,
-				)
-			elif kind == "single_template":
-				entries = self.output_template_service.import_from_json(path)
-				imported_count = len(entries) - before_count
-				self.window.config_frame.set_templates(
-					entries,
-					preserve_selection=True,
-				)
-			elif kind == "range_template":
-				entries = self.range_output_template_service.import_from_json(path)
-				imported_count = len(entries) - before_count
-				self.window.config_frame.set_range_templates(
-					entries,
-					preserve_selection=True,
-				)
-			elif kind == "month_template":
-				entries = self.month_output_template_service.import_from_json(path)
-				imported_count = len(entries) - before_count
-				self.window.config_frame.set_month_templates(
-					entries,
-					preserve_selection=True,
-				)
-			else:
-				raise ValueError(f"unknown preset kind: {kind}")
+			plan = service.prepare_import(path)
 		except (OSError, ValueError) as error:
 			self._show_preset_io_error("取込", path, error)
 			return
 
+		policy = ConflictPolicy.SKIP
+		if plan.conflicting_names:
+			policy = self.window.choose_preset_conflict_policy(
+				plan.conflicting_names
+			)
+			if policy is None:
+				return
+
+		try:
+			result = service.apply_import(plan, policy)
+		except (OSError, ValueError) as error:
+			self._show_preset_io_error("取込", path, error)
+			return
+
+		if not result.changed:
+			messagebox.showinfo(
+				"プリセット取込",
+				f"変更はありませんでした。\nスキップ: {result.skipped_count}件",
+				parent=self.window,
+			)
+			return
+
+		set_entries(result.updated_entries)
 		self._last_items = []
 		self._last_base_dir = None
 		self._last_scan_params = None
@@ -270,7 +333,10 @@ class AppController:
 		)
 		messagebox.showinfo(
 			"プリセット取込",
-			f"{self._preset_label(kind)}を{imported_count}件取り込みました。\n"
+			f"{self._preset_label(kind)}を取り込みました。\n"
+			f"追加: {result.added_count}件\n"
+			f"上書き: {result.overwritten_count}件\n"
+			f"スキップ: {result.skipped_count}件\n"
 			"再プレビューしてください。",
 			parent=self.window,
 		)

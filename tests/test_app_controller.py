@@ -15,6 +15,11 @@ from rename_date.services.validation import (
 	InvalidTemplateError,
 	compile_pattern,
 )
+from rename_date.services.preset_io import (
+	ConflictPolicy,
+	create_import_plan,
+	resolve_import_plan,
+)
 
 
 class FakeConfigFrame:
@@ -191,6 +196,8 @@ class FakeWindow:
 		self.import_path: Path | None = None
 		self.export_path_requests = []
 		self.import_path_requests = []
+		self.conflict_policy = ConflictPolicy.SKIP
+		self.conflict_policy_requests = []
 
 	def after(self, delay, callback, *args):
 		callback(*args)
@@ -211,6 +218,10 @@ class FakeWindow:
 	def choose_preset_import_path(self, kind):
 		self.import_path_requests.append(kind)
 		return self.import_path
+
+	def choose_preset_conflict_policy(self, conflicting_names):
+		self.conflict_policy_requests.append(conflicting_names)
+		return self.conflict_policy
 
 
 class ImmediateThread:
@@ -233,6 +244,8 @@ class FakePatternService:
 		self.base_dir = Path(".")
 		self.export_calls = []
 		self.import_entries = []
+		self.prepare_calls = []
+		self.apply_calls = []
 
 	def load(self):
 		return list(self.entries)
@@ -247,6 +260,21 @@ class FakePatternService:
 			raise self.error
 		self.entries.extend(self.import_entries)
 		return list(self.entries)
+
+	def prepare_import(self, path):
+		self.prepare_calls.append(path)
+		if self.error:
+			raise self.error
+		return create_import_plan(self.entries, self.import_entries)
+
+	def apply_import(self, plan, policy):
+		self.apply_calls.append((plan, policy))
+		if self.error:
+			raise self.error
+		result = resolve_import_plan(plan, policy)
+		if result.changed:
+			self.entries = list(result.updated_entries)
+		return result
 
 	def upsert(self, entry):
 		if self.error:
@@ -270,12 +298,29 @@ class FakeTemplateService:
 		self.error: Exception | None = None
 		self.import_entries = []
 		self.base_dir = Path(".")
+		self.prepare_calls = []
+		self.apply_calls = []
 
 	def import_from_json(self, path):
 		if self.error:
 			raise self.error
 		self.entries.extend(self.import_entries)
 		return list(self.entries)
+
+	def prepare_import(self, path):
+		self.prepare_calls.append(path)
+		if self.error:
+			raise self.error
+		return create_import_plan(self.entries, self.import_entries)
+
+	def apply_import(self, plan, policy):
+		self.apply_calls.append((plan, policy))
+		if self.error:
+			raise self.error
+		result = resolve_import_plan(plan, policy)
+		if result.changed:
+			self.entries = list(result.updated_entries)
+		return result
 
 	def load(self):
 		return list(self.entries)
@@ -754,7 +799,107 @@ def test_import_updates_presets_and_invalidates_preview(monkeypatch, tmp_path):
 	assert controller._last_base_dir is None
 	assert controller._last_scan_params is None
 	assert undo.has_history()
-	assert "1件取り込みました" in notices[0][1]
+	assert "追加: 1件" in notices[0][1]
+	assert window.conflict_policy_requests == []
+
+
+def test_import_conflicts_overwrite_in_place_and_report_counts(monkeypatch, tmp_path):
+	controller, window, _, _, _, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	old_default = patterns.entries[0]
+	second = PatternEntry("second", r"(\d{4})-(\d{2})")
+	patterns.entries.append(second)
+	window.config_frame.set_patterns(patterns.entries)
+	window.config_frame.selected_patterns = [old_default]
+	replacement_default = PatternEntry("default", r"(\d{4})\.(\d{2})")
+	replacement_second = PatternEntry("second", r"(\d{4})/(\d{2})")
+	added = PatternEntry("added", r"(\d{4})(\d{2})(\d{2})")
+	patterns.import_entries = [replacement_second, replacement_default, added]
+	window.import_path = tmp_path / "patterns.json"
+	window.conflict_policy = ConflictPolicy.OVERWRITE
+	notices = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: notices.append(args),
+	)
+
+	controller._on_preset_import("pattern")
+
+	assert window.conflict_policy_requests == [("second", "default")]
+	assert [entry.name for entry in patterns.entries] == [
+		"default",
+		"second",
+		"added",
+	]
+	assert patterns.entries[:2] == [replacement_default, replacement_second]
+	assert window.config_frame.selected_patterns == [replacement_default]
+	assert notices[0][1].count("上書き: 2件") == 1
+	assert "追加: 1件" in notices[0][1]
+	assert "スキップ: 0件" in notices[0][1]
+	assert "再プレビューしてください" in notices[0][1]
+
+
+def test_cancelled_conflict_resolution_preserves_import_state(monkeypatch, tmp_path):
+	controller, window, scanner, _, _, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	controller._on_preview_request()
+	preview_items = list(window.preview_frame.items)
+	scan_params = controller._last_scan_params
+	selected = list(window.config_frame.selected_patterns)
+	counts = window.action_frame.counts
+	patterns.import_entries = [patterns.entries[0]]
+	window.import_path = tmp_path / "patterns.json"
+	window.conflict_policy = None
+
+	controller._on_preset_import("pattern")
+
+	assert window.conflict_policy_requests == [("default",)]
+	assert patterns.apply_calls == []
+	assert window.config_frame.selected_patterns == selected
+	assert window.preview_frame.items == preview_items
+	assert window.action_frame.counts == counts
+	assert controller._last_scan_params == scan_params
+	assert len(scanner.calls) == 1
+
+
+def test_all_conflicts_skipped_does_not_invalidate_preview(monkeypatch, tmp_path):
+	controller, window, scanner, _, _, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	controller._on_preview_request()
+	preview_items = list(window.preview_frame.items)
+	scan_params = controller._last_scan_params
+	status = window.action_frame.status
+	counts = window.action_frame.counts
+	entries_before = list(patterns.entries)
+	patterns.import_entries = [patterns.entries[0]]
+	window.import_path = tmp_path / "patterns.json"
+	window.conflict_policy = ConflictPolicy.SKIP
+	notices = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: notices.append(args),
+	)
+
+	controller._on_preset_import("pattern")
+
+	assert patterns.entries == entries_before
+	assert patterns.apply_calls[0][1] is ConflictPolicy.SKIP
+	assert window.preview_frame.items == preview_items
+	assert window.action_frame.status == status
+	assert window.action_frame.counts == counts
+	assert controller._last_scan_params == scan_params
+	assert len(scanner.calls) == 1
+	assert "変更はありませんでした" in notices[0][1]
+	assert "スキップ: 1件" in notices[0][1]
+	assert "再プレビュー" not in notices[0][1]
 
 
 @pytest.mark.parametrize(
@@ -919,6 +1064,7 @@ def test_failed_import_does_not_change_preview_or_selection(monkeypatch, tmp_pat
 	assert window.config_frame.selected_patterns == selected_patterns
 	assert window.action_frame.counts == counts
 	assert len(errors) == 1
+	assert window.conflict_policy_requests == []
 
 
 def test_undo_after_import_does_not_restore_stale_preview(monkeypatch, tmp_path):

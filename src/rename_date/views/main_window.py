@@ -9,10 +9,12 @@ from tkinterdnd2 import TkinterDnD
 from tkinter import ttk
 
 from rename_date import config
+from rename_date.services.preset_io import ConflictPolicy
 from rename_date.views.action_frame import ActionFrame
 from rename_date.views.config_frame import ConfigFrame, PresetKind
 from rename_date.views.log_frame import LogFrame
 from rename_date.views.preview_frame import PreviewFrame
+from rename_date.views.preset_conflict_dialog import PresetConflictDialog
 
 
 class MainWindow(TkinterDnD.Tk):
@@ -115,6 +117,16 @@ class MainWindow(TkinterDnD.Tk):
 			filetypes=(("JSONファイル", "*.json"), ("すべてのファイル", "*.*")),
 		)
 		return Path(selected) if selected else None
+
+	def choose_preset_conflict_policy(
+		self,
+		conflicting_names: tuple[str, ...],
+	) -> ConflictPolicy | None:
+		"""Ask how to resolve name conflicts in an imported preset file."""
+
+		dialog = PresetConflictDialog(self, conflicting_names)
+		self.wait_window(dialog)
+		return dialog.result
 
 	@staticmethod
 	def _preset_label(kind: PresetKind) -> str:
