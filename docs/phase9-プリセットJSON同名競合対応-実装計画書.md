@@ -64,10 +64,10 @@
 
 ### 5. バージョン更新とインストーラービルド
 
-- [ ] `uv version 0.4.2` で [pyproject.toml](../pyproject.toml) と [uv.lock](../uv.lock) のプロジェクトバージョンを `0.4.2` に更新する。`uv lock --check` と `uv run --locked python -c "from importlib.metadata import version; assert version('rename-date') == '0.4.2'"` で同期とバージョンを確認する。
-- [ ] [setup.iss](../installer/setup.iss) のInno Setup単独実行時の既定バージョンを `0.4.2` にする。[build-release.ps1](../scripts/build-release.ps1) が `pyproject.toml` からバージョンを渡す仕組みと、既存のインストーラーの `AppId` は維持する。
+- [x] `uv version 0.4.2` で [pyproject.toml](../pyproject.toml) と [uv.lock](../uv.lock) のプロジェクトバージョンを `0.4.2` に更新する。`uv lock --check` と `uv run --locked python -c "from importlib.metadata import version; assert version('rename-date') == '0.4.2'"` で同期とバージョンを確認する。
+- [x] [setup.iss](../installer/setup.iss) のInno Setup単独実行時の既定バージョンを `0.4.2` にする。[build-release.ps1](../scripts/build-release.ps1) が `pyproject.toml` からバージョンを渡す仕組みと、既存のインストーラーの `AppId` は維持する。
 - [ ] Windows上で `uv sync`、テスト一式、`uv run main.py` によるGUI動作確認を行う。4種類のプリセットの競合なし、上書き、スキップ、キャンセル、全件スキップ、大量競合・高DPI環境での競合ダイアログ表示、取込後の再プレビューを確認する。
-- [ ] `iscc.exe` が利用可能なWindowsの検証用作業コピーで `pwsh -File .\scripts\build-release.ps1`（PowerShell 7 が無い環境では `powershell -File .\scripts\build-release.ps1`）を実行し、PyInstallerの実行ファイルと `installer\Output\rename-date-0.4.2-setup.exe` が生成されることを確認する（同スクリプトは既存の `build`・`dist`・`installer\Output` を削除するため既存成果物を消さない環境で実行する）。
+- [x] `iscc.exe` が利用可能なWindowsの検証用作業コピーで `pwsh -File .\scripts\build-release.ps1`（PowerShell 7 が無い環境では `powershell -File .\scripts\build-release.ps1`）を実行し、PyInstallerの実行ファイルと `installer\Output\rename-date-0.4.2-setup.exe` が生成されることを確認する（同スクリプトは既存の `build`・`dist`・`installer\Output` を削除するため既存成果物を消さない環境で実行する）。
 - [ ] 検証用プロファイルに v0.4.1 が導入済みであることを確認したうえで v0.4.2 へ更新インストールし、アプリが起動すること、バージョンが `0.4.2` であること、既存設定が保持されること、新しい競合選択と通常の取込が動作することを確認する。
 
 ## スコープ外

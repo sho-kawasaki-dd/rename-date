@@ -227,7 +227,7 @@ wheels = [
 
 [[package]]
 name = "rename-date"
-version = "0.4.1"
+version = "0.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "tkinterdnd2" },
