@@ -4,9 +4,10 @@ import json
 import os
 import tempfile
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import Generic, Protocol, TypeVar
 
 from rename_date import config
 
@@ -16,6 +17,88 @@ class NamedPreset(Protocol):
 
 
 Entry = TypeVar("Entry", bound=NamedPreset)
+
+
+class ConflictPolicy(str, Enum):
+    """How an import handles names already present in the stored presets."""
+
+    OVERWRITE = "overwrite"
+    SKIP = "skip"
+
+
+@dataclass(frozen=True)
+class PresetImportPlan(Generic[Entry]):
+    """Validated existing and imported presets, ready for conflict resolution."""
+
+    existing_entries: tuple[Entry, ...]
+    imported_entries: tuple[Entry, ...]
+    conflicting_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PresetImportResult(Generic[Entry]):
+    """Resolved preset list and the counts resulting from an import."""
+
+    updated_entries: list[Entry]
+    added_count: int
+    overwritten_count: int
+    skipped_count: int
+
+    @property
+    def changed(self) -> bool:
+        return self.added_count > 0 or self.overwritten_count > 0
+
+
+def create_import_plan(
+    existing_entries: list[Entry],
+    imported_entries: list[Entry],
+) -> PresetImportPlan[Entry]:
+    """Capture existing-name conflicts in the order they occur in the import."""
+    existing_names = {entry.name for entry in existing_entries}
+    conflicting_names = tuple(
+        entry.name for entry in imported_entries if entry.name in existing_names
+    )
+    return PresetImportPlan(
+        existing_entries=tuple(existing_entries),
+        imported_entries=tuple(imported_entries),
+        conflicting_names=conflicting_names,
+    )
+
+
+def resolve_import_plan(
+    plan: PresetImportPlan[Entry],
+    policy: ConflictPolicy,
+) -> PresetImportResult[Entry]:
+    """Combine a validated import plan according to its conflict policy."""
+    if not isinstance(policy, ConflictPolicy):
+        raise ValueError("unsupported preset import conflict policy")
+
+    updated_entries = list(plan.existing_entries)
+    existing_indexes = {
+        entry.name: index for index, entry in enumerate(updated_entries)
+    }
+    added_count = 0
+    overwritten_count = 0
+    skipped_count = 0
+
+    for entry in plan.imported_entries:
+        existing_index = existing_indexes.get(entry.name)
+        if existing_index is None:
+            existing_indexes[entry.name] = len(updated_entries)
+            updated_entries.append(entry)
+            added_count += 1
+        elif policy is ConflictPolicy.OVERWRITE:
+            updated_entries[existing_index] = entry
+            overwritten_count += 1
+        else:
+            skipped_count += 1
+
+    return PresetImportResult(
+        updated_entries=updated_entries,
+        added_count=added_count,
+        overwritten_count=overwritten_count,
+        skipped_count=skipped_count,
+    )
 
 
 class PresetIOReason(str, Enum):

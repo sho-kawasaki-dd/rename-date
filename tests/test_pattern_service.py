@@ -7,7 +7,11 @@ import pytest
 
 from rename_date import config
 from rename_date.models.pattern_entry import PatternEntry
-from rename_date.services.preset_io import PresetIOError, PresetIOReason
+from rename_date.services.preset_io import (
+    ConflictPolicy,
+    PresetIOError,
+    PresetIOReason,
+)
 from rename_date.services.pattern_service import PatternService
 from rename_date.services.validation import InvalidPatternError
 
@@ -376,3 +380,115 @@ def test_json_operations_do_not_restore_missing_internal_storage(tmp_path):
 
     assert not service.file_path.exists()
     assert import_path.exists()
+
+
+def test_import_plan_overwrites_in_place_and_appends_in_import_order(tmp_path):
+    service = PatternService(tmp_path / "config")
+    existing = [
+        PatternEntry("first", r"(\d{4})(\d{2})(\d{2})"),
+        PatternEntry("replace", r"(\d{4})\.(\d{2})\.(\d{2})"),
+        PatternEntry("last", r"(\d{4})-(\d{2})-(\d{2})"),
+    ]
+    service.save(existing)
+    imported = [
+        PatternEntry("new-first", r"(\d{4})(\d{2})(\d{2})"),
+        existing[1],
+        PatternEntry("new-last", r"(\d{4})/(\d{2})/(\d{2})"),
+    ]
+    import_path = tmp_path / "import.json"
+    import_path.write_text(
+        json.dumps([entry.to_dict() for entry in imported]),
+        encoding="utf-8",
+    )
+
+    plan = service.prepare_import(import_path)
+    import_path.write_text(
+        json.dumps(
+            [PatternEntry("changed-after-prepare", imported[0].pattern).to_dict()]
+        ),
+        encoding="utf-8",
+    )
+    result = service.apply_import(plan, ConflictPolicy.OVERWRITE)
+
+    assert plan.conflicting_names == ("replace",)
+    assert result.updated_entries == [
+        existing[0],
+        existing[1],
+        existing[2],
+        imported[0],
+        imported[2],
+    ]
+    assert (result.added_count, result.overwritten_count, result.skipped_count) == (
+        2,
+        1,
+        0,
+    )
+    assert result.changed
+    assert service.load() == result.updated_entries
+
+
+def test_all_skipped_import_does_not_write_and_names_are_case_sensitive(tmp_path):
+    service = PatternService(tmp_path / "config")
+    existing = PatternEntry("same", r"(\d{4})(\d{2})(\d{2})")
+    service.save([existing])
+    original_bytes = service.file_path.read_bytes()
+    import_path = tmp_path / "import.json"
+    import_path.write_text(
+        json.dumps([existing.to_dict()]),
+        encoding="utf-8",
+    )
+
+    result = service.apply_import(
+        service.prepare_import(import_path),
+        ConflictPolicy.SKIP,
+    )
+
+    assert result.updated_entries == [existing]
+    assert (result.added_count, result.overwritten_count, result.skipped_count) == (
+        0,
+        0,
+        1,
+    )
+    assert not result.changed
+    assert service.file_path.read_bytes() == original_bytes
+
+    case_variant_path = tmp_path / "case-variant.json"
+    case_variant = PatternEntry("Same", existing.pattern)
+    case_variant_path.write_text(
+        json.dumps([case_variant.to_dict()]),
+        encoding="utf-8",
+    )
+    case_variant_result = service.apply_import(
+        service.prepare_import(case_variant_path),
+        ConflictPolicy.SKIP,
+    )
+    assert case_variant_result.updated_entries == [existing, case_variant]
+    assert case_variant_result.added_count == 1
+
+
+def test_skip_import_keeps_conflicts_and_appends_non_conflicts(tmp_path):
+    service = PatternService(tmp_path / "config")
+    existing = PatternEntry("existing", r"(\d{4})(\d{2})(\d{2})")
+    service.save([existing])
+    imported = [
+        PatternEntry("existing", r"(\d{4})\.(\d{2})\.(\d{2})"),
+        PatternEntry("new", r"(\d{4})/(\d{2})/(\d{2})"),
+    ]
+    import_path = tmp_path / "import.json"
+    import_path.write_text(
+        json.dumps([entry.to_dict() for entry in imported]),
+        encoding="utf-8",
+    )
+
+    result = service.apply_import(
+        service.prepare_import(import_path),
+        ConflictPolicy.SKIP,
+    )
+
+    assert result.updated_entries == [existing, imported[1]]
+    assert (result.added_count, result.overwritten_count, result.skipped_count) == (
+        1,
+        0,
+        1,
+    )
+    assert service.load() == result.updated_entries

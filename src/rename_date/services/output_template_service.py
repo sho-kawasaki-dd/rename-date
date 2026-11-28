@@ -5,11 +5,16 @@ from pathlib import Path
 from rename_date import config
 from rename_date.models.output_template_entry import OutputTemplateEntry
 from rename_date.services.preset_io import (
+    ConflictPolicy,
     PresetIOError,
     PresetIOReason,
+    PresetImportPlan,
+    PresetImportResult,
+    create_import_plan,
     entries_from_json,
     ensure_external_preset_path,
     read_json,
+    resolve_import_plan,
     write_json_atomic,
 )
 from rename_date.services.validation import (
@@ -60,23 +65,44 @@ class OutputTemplateService:
 
     def import_from_json(self, path: Path) -> list[OutputTemplateEntry]:
         """Append presets from an external JSON file and persist them once."""
+        plan = self.prepare_import(path)
+        if plan.conflicting_names:
+            conflicting_name = plan.conflicting_names[0]
+            index = next(
+                index
+                for index, entry in enumerate(plan.imported_entries)
+                if entry.name == conflicting_name
+            )
+            raise PresetIOError(
+                PresetIOReason.DUPLICATE_NAME,
+                "output-template preset name already exists: "
+                f"{conflicting_name}",
+                name=conflicting_name,
+                index=index,
+            )
+        return self.apply_import(plan, ConflictPolicy.SKIP).updated_entries
+
+    def prepare_import(
+        self,
+        path: Path,
+    ) -> PresetImportPlan[OutputTemplateEntry]:
+        """Validate both preset files and return a plan without modifying storage."""
         ensure_external_preset_path(path, self.base_dir)
         imported = self._read_entries(path, encoding="utf-8-sig")
         existing = self._load_strict()
-        existing_names = {entry.name for entry in existing}
-        for index, entry in enumerate(imported):
-            if entry.name in existing_names:
-                raise PresetIOError(
-                    PresetIOReason.DUPLICATE_NAME,
-                    f"output-template preset name already exists: {entry.name}",
-                    name=entry.name,
-                    index=index,
-                )
+        return create_import_plan(existing, imported)
 
-        combined = [*existing, *imported]
-        self._validate_entries(combined)
-        self.save(combined)
-        return combined
+    def apply_import(
+        self,
+        plan: PresetImportPlan[OutputTemplateEntry],
+        policy: ConflictPolicy,
+    ) -> PresetImportResult[OutputTemplateEntry]:
+        """Resolve conflicts, validate the full list, and save it at most once."""
+        result = resolve_import_plan(plan, policy)
+        if result.changed:
+            self._validate_entries(result.updated_entries)
+            self.save(result.updated_entries)
+        return result
 
     def _load_strict(self) -> list[OutputTemplateEntry]:
         """Read internal storage without restoring defaults on failure."""

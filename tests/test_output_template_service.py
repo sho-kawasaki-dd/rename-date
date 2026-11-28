@@ -6,7 +6,11 @@ import pytest
 
 from rename_date import config
 from rename_date.models.output_template_entry import OutputTemplateEntry
-from rename_date.services.preset_io import PresetIOError, PresetIOReason
+from rename_date.services.preset_io import (
+	ConflictPolicy,
+	PresetIOError,
+	PresetIOReason,
+)
 from rename_date.services.output_template_service import (
 	MonthOutputTemplateService,
 	OutputTemplateService,
@@ -578,3 +582,92 @@ def test_late_invalid_import_entry_preserves_source_and_internal_files(
 	assert error.value.index == 1
 	assert service.file_path.read_bytes() == original_config
 	assert import_path.read_bytes() == original_import
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+		(MonthOutputTemplateService, "{Y}-{M}"),
+	],
+)
+def test_import_plan_overwrites_in_place_and_appends_in_import_order(
+	tmp_path,
+	service_type,
+	template,
+):
+	service = service_type(tmp_path / "config")
+	existing = [
+		OutputTemplateEntry("first", template),
+		OutputTemplateEntry("replace", template),
+		OutputTemplateEntry("last", template),
+	]
+	service.save(existing)
+	imported = [
+		OutputTemplateEntry("new-first", template),
+		OutputTemplateEntry("replace", template),
+		OutputTemplateEntry("new-last", template),
+	]
+	import_path = tmp_path / "import.json"
+	import_path.write_text(
+		json.dumps([entry.to_dict() for entry in imported]),
+		encoding="utf-8",
+	)
+
+	plan = service.prepare_import(import_path)
+	result = service.apply_import(plan, ConflictPolicy.OVERWRITE)
+
+	assert plan.conflicting_names == ("replace",)
+	assert result.updated_entries == [
+		existing[0],
+		imported[1],
+		existing[2],
+		imported[0],
+		imported[2],
+	]
+	assert (result.added_count, result.overwritten_count, result.skipped_count) == (
+		2,
+		1,
+		0,
+	)
+	assert result.changed
+	assert service.load() == result.updated_entries
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+		(MonthOutputTemplateService, "{Y}-{M}"),
+	],
+)
+def test_all_skipped_import_does_not_write(
+	tmp_path,
+	service_type,
+	template,
+):
+	service = service_type(tmp_path / "config")
+	existing = OutputTemplateEntry("same", template)
+	service.save([existing])
+	original_bytes = service.file_path.read_bytes()
+	import_path = tmp_path / "import.json"
+	import_path.write_text(
+		json.dumps([existing.to_dict()]),
+		encoding="utf-8",
+	)
+
+	result = service.apply_import(
+		service.prepare_import(import_path),
+		ConflictPolicy.SKIP,
+	)
+
+	assert result.updated_entries == [existing]
+	assert (result.added_count, result.overwritten_count, result.skipped_count) == (
+		0,
+		0,
+		1,
+	)
+	assert not result.changed
+	assert service.file_path.read_bytes() == original_bytes
