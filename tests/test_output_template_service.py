@@ -508,6 +508,7 @@ def test_import_rejects_malformed_presets_without_changing_either_file(
 	[
 		(OutputTemplateService, "{Y}{M}{D}"),
 		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+		(MonthOutputTemplateService, "{Y}-{M}"),
 	],
 )
 def test_json_operations_do_not_restore_missing_or_corrupt_internal_storage(
@@ -542,6 +543,54 @@ def test_json_operations_do_not_restore_missing_or_corrupt_internal_storage(
 		assert not service.file_path.exists()
 	else:
 		assert service.file_path.read_bytes() == original_config
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+		(MonthOutputTemplateService, "{Y}-{M}"),
+	],
+)
+@pytest.mark.parametrize("file_name", config.PRESET_FILE_NAMES)
+def test_prepare_import_rejects_every_internal_config_path(
+	tmp_path,
+	service_type,
+	template,
+	file_name,
+):
+	service = service_type(tmp_path / "config")
+	service.save([OutputTemplateEntry("existing", template)])
+	internal_path = service.base_dir / file_name
+
+	with pytest.raises(PresetIOError) as error:
+		service.prepare_import(internal_path)
+
+	assert error.value.reason is PresetIOReason.INTERNAL_PATH
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+		(MonthOutputTemplateService, "{Y}-{M}"),
+	],
+)
+def test_prepare_import_read_failure_preserves_internal_config(
+	tmp_path,
+	service_type,
+	template,
+):
+	service = service_type(tmp_path / "config")
+	service.save([OutputTemplateEntry("existing", template)])
+	original_config = service.file_path.read_bytes()
+
+	with pytest.raises(FileNotFoundError):
+		service.prepare_import(tmp_path / "missing.json")
+
+	assert service.file_path.read_bytes() == original_config
 
 
 @pytest.mark.parametrize(
@@ -671,3 +720,138 @@ def test_all_skipped_import_does_not_write(
 	)
 	assert not result.changed
 	assert service.file_path.read_bytes() == original_bytes
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+		(MonthOutputTemplateService, "{Y}-{M}"),
+	],
+)
+def test_skip_import_counts_mixed_conflicts_and_preserves_case_sensitive_names(
+	tmp_path,
+	service_type,
+	template,
+):
+	service = service_type(tmp_path / "config")
+	existing = OutputTemplateEntry("same", template)
+	service.save([existing])
+	imported = [
+		OutputTemplateEntry("first", template),
+		OutputTemplateEntry("Same", template),
+		OutputTemplateEntry("same", template),
+		OutputTemplateEntry("last", template),
+	]
+	import_path = tmp_path / "import.json"
+	import_path.write_text(
+		json.dumps([entry.to_dict() for entry in imported]),
+		encoding="utf-8",
+	)
+
+	result = service.apply_import(
+		service.prepare_import(import_path),
+		ConflictPolicy.SKIP,
+	)
+
+	assert result.updated_entries == [
+		existing,
+		imported[0],
+		imported[1],
+		imported[3],
+	]
+	assert (result.added_count, result.overwritten_count, result.skipped_count) == (
+		3,
+		0,
+		1,
+	)
+	assert service.load() == result.updated_entries
+
+
+@pytest.mark.parametrize(
+	("service_type", "valid_template", "invalid_template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}", "{Y}{M}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}", "{Y}{M}{D}"),
+		(MonthOutputTemplateService, "{Y}-{M}", "{Y}"),
+	],
+)
+def test_prepare_import_rejects_duplicate_and_invalid_entries_without_changes(
+	tmp_path,
+	service_type,
+	valid_template,
+	invalid_template,
+):
+	service = service_type(tmp_path / "config")
+	existing = OutputTemplateEntry("existing", valid_template)
+	service.save([existing])
+	original_config = service.file_path.read_bytes()
+	import_path = tmp_path / "invalid.json"
+
+	for payload, reason in (
+		(
+			[
+				{"name": "duplicate", "template": valid_template},
+				{"name": "duplicate", "template": valid_template},
+			],
+			PresetIOReason.DUPLICATE_NAME,
+		),
+		(
+			[
+				{"name": "valid", "template": valid_template},
+				{"name": "invalid", "template": invalid_template},
+			],
+			PresetIOReason.VALIDATION,
+		),
+		(
+			[{"name": "bad", "template": 3}],
+			PresetIOReason.INVALID_FORMAT,
+		),
+	):
+		import_path.write_text(json.dumps(payload), encoding="utf-8")
+		original_import = import_path.read_bytes()
+
+		with pytest.raises(PresetIOError) as error:
+			service.prepare_import(import_path)
+
+		assert error.value.reason is reason
+		assert service.file_path.read_bytes() == original_config
+		assert import_path.read_bytes() == original_import
+
+
+@pytest.mark.parametrize(
+	("service_type", "template"),
+	[
+		(OutputTemplateService, "{Y}{M}{D}"),
+		(RangeOutputTemplateService, "{Y}{M}{D}-{Y2}{M2}{D2}"),
+		(MonthOutputTemplateService, "{Y}-{M}"),
+	],
+)
+def test_import_save_failure_preserves_internal_file(
+	tmp_path,
+	monkeypatch,
+	service_type,
+	template,
+):
+	service = service_type(tmp_path / "config")
+	existing = OutputTemplateEntry("existing", template)
+	service.save([existing])
+	original_config = service.file_path.read_bytes()
+	import_path = tmp_path / "import.json"
+	import_path.write_text(
+		json.dumps([OutputTemplateEntry("added", template).to_dict()]),
+		encoding="utf-8",
+	)
+	plan = service.prepare_import(import_path)
+
+	def fail_replace(*_args, **_kwargs):
+		raise OSError("replacement failed")
+
+	monkeypatch.setattr("rename_date.services.preset_io.os.replace", fail_replace)
+
+	with pytest.raises(OSError, match="replacement failed"):
+		service.apply_import(plan, ConflictPolicy.SKIP)
+
+	assert service.file_path.read_bytes() == original_config
+	assert list(service.base_dir.glob(".*.tmp")) == []

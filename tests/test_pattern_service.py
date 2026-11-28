@@ -492,3 +492,83 @@ def test_skip_import_keeps_conflicts_and_appends_non_conflicts(tmp_path):
         1,
     )
     assert service.load() == result.updated_entries
+
+
+def test_prepare_import_rejects_duplicate_and_invalid_entries_without_changes(
+    tmp_path,
+    default_pattern,
+):
+    service = PatternService(tmp_path / "config")
+    service.save([default_pattern])
+    original_config = service.file_path.read_bytes()
+    import_path = tmp_path / "invalid.json"
+
+    for payload, reason in (
+        (
+            [
+                default_pattern.to_dict(),
+                default_pattern.to_dict(),
+            ],
+            PresetIOReason.DUPLICATE_NAME,
+        ),
+        (
+            [
+                {"name": "valid", "pattern": r"(\d{4})(\d{2})(\d{2})"},
+                {"name": "invalid", "pattern": r"(\d{4})"},
+            ],
+            PresetIOReason.VALIDATION,
+        ),
+        (
+            [{"name": "bad", "pattern": 3}],
+            PresetIOReason.INVALID_FORMAT,
+        ),
+    ):
+        import_path.write_text(json.dumps(payload), encoding="utf-8")
+        original_import = import_path.read_bytes()
+
+        with pytest.raises(PresetIOError) as error:
+            service.prepare_import(import_path)
+
+        assert error.value.reason is reason
+        assert service.file_path.read_bytes() == original_config
+        assert import_path.read_bytes() == original_import
+
+
+def test_import_save_failure_preserves_internal_file(tmp_path, monkeypatch):
+    service = PatternService(tmp_path / "config")
+    existing = PatternEntry("existing", r"(\d{4})(\d{2})(\d{2})")
+    service.save([existing])
+    original_config = service.file_path.read_bytes()
+    import_path = tmp_path / "import.json"
+    import_path.write_text(
+        json.dumps(
+            [PatternEntry("added", r"(\d{4})-(\d{2})-(\d{2})").to_dict()]
+        ),
+        encoding="utf-8",
+    )
+    plan = service.prepare_import(import_path)
+
+    def fail_replace(*_args, **_kwargs):
+        raise OSError("replacement failed")
+
+    monkeypatch.setattr("rename_date.services.preset_io.os.replace", fail_replace)
+
+    with pytest.raises(OSError, match="replacement failed"):
+        service.apply_import(plan, ConflictPolicy.SKIP)
+
+    assert service.file_path.read_bytes() == original_config
+    assert list(service.base_dir.glob(".patterns-*.tmp")) == []
+
+
+def test_prepare_import_read_failure_preserves_internal_config(
+    tmp_path,
+    default_pattern,
+):
+    service = PatternService(tmp_path / "config")
+    service.save([default_pattern])
+    original_config = service.file_path.read_bytes()
+
+    with pytest.raises(FileNotFoundError):
+        service.prepare_import(tmp_path / "missing.json")
+
+    assert service.file_path.read_bytes() == original_config

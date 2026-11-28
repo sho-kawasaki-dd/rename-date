@@ -842,8 +842,42 @@ def test_import_conflicts_overwrite_in_place_and_report_counts(monkeypatch, tmp_
 	assert "再プレビューしてください" in notices[0][1]
 
 
+def test_import_skip_keeps_conflicts_adds_new_items_and_reports_counts(
+	monkeypatch,
+	tmp_path,
+):
+	controller, window, _, _, undo, _, patterns, *_ = make_controller(
+		monkeypatch,
+		tmp_path,
+	)
+	existing = patterns.entries[0]
+	replacement = PatternEntry(existing.name, r"(\d{4})\.(\d{2})\.(\d{2})")
+	added = PatternEntry("added", r"(\d{4})-(\d{2})-(\d{2})")
+	patterns.import_entries = [replacement, added]
+	window.import_path = tmp_path / "patterns.json"
+	window.conflict_policy = ConflictPolicy.SKIP
+	undo.histories = [ExecutionHistory(items=[])]
+	notices = []
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: notices.append(args),
+	)
+
+	controller._on_preset_import("pattern")
+
+	assert patterns.entries == [existing, added]
+	assert window.conflict_policy_requests == [(existing.name,)]
+	assert patterns.apply_calls[0][1] is ConflictPolicy.SKIP
+	assert "追加: 1件" in notices[0][1]
+	assert "上書き: 0件" in notices[0][1]
+	assert "スキップ: 1件" in notices[0][1]
+	assert "再プレビューしてください" in notices[0][1]
+	assert undo.has_history()
+
+
 def test_cancelled_conflict_resolution_preserves_import_state(monkeypatch, tmp_path):
-	controller, window, scanner, _, _, _, patterns, *_ = make_controller(
+	controller, window, scanner, _, undo, _, patterns, *_ = make_controller(
 		monkeypatch,
 		tmp_path,
 	)
@@ -852,6 +886,7 @@ def test_cancelled_conflict_resolution_preserves_import_state(monkeypatch, tmp_p
 	scan_params = controller._last_scan_params
 	selected = list(window.config_frame.selected_patterns)
 	counts = window.action_frame.counts
+	undo.histories = [ExecutionHistory(items=list(controller._last_items))]
 	patterns.import_entries = [patterns.entries[0]]
 	window.import_path = tmp_path / "patterns.json"
 	window.conflict_policy = None
@@ -865,10 +900,14 @@ def test_cancelled_conflict_resolution_preserves_import_state(monkeypatch, tmp_p
 	assert window.action_frame.counts == counts
 	assert controller._last_scan_params == scan_params
 	assert len(scanner.calls) == 1
+	assert undo.has_history()
+	controller._on_undo()
+	assert len(undo.calls) == 1
+	assert not undo.has_history()
 
 
 def test_all_conflicts_skipped_does_not_invalidate_preview(monkeypatch, tmp_path):
-	controller, window, scanner, _, _, _, patterns, *_ = make_controller(
+	controller, window, scanner, _, undo, _, patterns, *_ = make_controller(
 		monkeypatch,
 		tmp_path,
 	)
@@ -878,6 +917,7 @@ def test_all_conflicts_skipped_does_not_invalidate_preview(monkeypatch, tmp_path
 	status = window.action_frame.status
 	counts = window.action_frame.counts
 	entries_before = list(patterns.entries)
+	undo.histories = [ExecutionHistory(items=list(controller._last_items))]
 	patterns.import_entries = [patterns.entries[0]]
 	window.import_path = tmp_path / "patterns.json"
 	window.conflict_policy = ConflictPolicy.SKIP
@@ -900,6 +940,71 @@ def test_all_conflicts_skipped_does_not_invalidate_preview(monkeypatch, tmp_path
 	assert "変更はありませんでした" in notices[0][1]
 	assert "スキップ: 1件" in notices[0][1]
 	assert "再プレビュー" not in notices[0][1]
+	assert undo.has_history()
+	controller._on_undo()
+	assert len(undo.calls) == 1
+	assert not undo.has_history()
+
+
+@pytest.mark.parametrize(
+	"kind",
+	["pattern", "single_template", "range_template", "month_template"],
+)
+def test_import_refreshes_selected_item_after_overwrite(
+	monkeypatch,
+	tmp_path,
+	kind,
+):
+	controller, window, _, _, _, _, patterns, templates, range_templates, *_ = (
+		make_controller(monkeypatch, tmp_path)
+	)
+	frame = window.config_frame
+	if kind == "pattern":
+		service = patterns
+		selected = frame.selected_patterns[0]
+		replacement = PatternEntry(selected.name, r"(\d{4})-(\d{2})-(\d{2})")
+	elif kind == "single_template":
+		service = templates
+		selected = frame.selected_template
+		assert selected is not None
+		replacement = OutputTemplateEntry(selected.name, "{Y}-{M}-{D}")
+	elif kind == "range_template":
+		service = range_templates
+		selected = frame.selected_range_template
+		assert selected is not None
+		replacement = OutputTemplateEntry(
+			selected.name,
+			"{Y}{M}{D}_{Y2}{M2}{D2}",
+		)
+	else:
+		service = controller.month_output_template_service
+		selected = frame.selected_month_template
+		assert selected is not None
+		replacement = OutputTemplateEntry(selected.name, "{Y}_{M}")
+
+	setattr(service, "import_entries", [replacement])
+	window.import_path = tmp_path / "presets.json"
+	window.conflict_policy = ConflictPolicy.OVERWRITE
+	monkeypatch.setattr(
+		controller_module.messagebox,
+		"showinfo",
+		lambda *args, **kwargs: None,
+	)
+
+	controller._on_preset_import(kind)
+
+	if kind == "pattern":
+		assert frame.patterns[0] == replacement
+		assert frame.selected_patterns == [replacement]
+	elif kind == "single_template":
+		assert frame.templates[0] == replacement
+		assert frame.selected_template == replacement
+	elif kind == "range_template":
+		assert frame.range_templates[0] == replacement
+		assert frame.selected_range_template == replacement
+	else:
+		assert frame.month_templates[0] == replacement
+		assert frame.selected_month_template == replacement
 
 
 @pytest.mark.parametrize(
@@ -1067,16 +1172,27 @@ def test_failed_import_does_not_change_preview_or_selection(monkeypatch, tmp_pat
 	assert window.conflict_policy_requests == []
 
 
-def test_undo_after_import_does_not_restore_stale_preview(monkeypatch, tmp_path):
+@pytest.mark.parametrize("import_kind", ["add", "overwrite"])
+def test_undo_after_import_does_not_restore_stale_preview(
+	monkeypatch,
+	tmp_path,
+	import_kind,
+):
 	controller, window, scanner, _, undo, _, patterns, *_ = make_controller(
 		monkeypatch,
 		tmp_path,
 	)
 	controller._on_preview_request()
 	old_items = list(controller._last_items)
-	patterns.import_entries = [
-		PatternEntry("imported", r"(\d{4})-(\d{2})-(\d{2})")
-	]
+	if import_kind == "add":
+		patterns.import_entries = [
+			PatternEntry("imported", r"(\d{4})-(\d{2})-(\d{2})")
+		]
+	else:
+		patterns.import_entries = [
+			PatternEntry("default", r"(\d{4})-(\d{2})-(\d{2})")
+		]
+		window.conflict_policy = ConflictPolicy.OVERWRITE
 	window.import_path = tmp_path / "patterns.json"
 	undo.histories = [ExecutionHistory(items=old_items)]
 	undo.restored_items = old_items
